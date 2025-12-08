@@ -1,9 +1,18 @@
 from pathlib import Path
 from typing import Dict, Any
+import sys
 import joblib
 import pandas as pd
 
-from app.models import PerformansIstegi
+# Paket olarak çalışmıyorsa kök dizini sys.path'e ekle
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+try:
+    from app.models import PerformansIstegi
+except ImportError:  # Paket importu başarısızsa relatif deneyelim
+    from ..models import PerformansIstegi
 
 
 class PerformansHesaplayici:
@@ -12,9 +21,10 @@ class PerformansHesaplayici:
     """
 
     def __init__(self, model_path: str = "performans_model.pkl") -> None:
-        base_dir = Path(__file__).resolve().parents[1]
+        # Proje kökü: .../personelim-ai
+        base_dir = Path(__file__).resolve().parents[2]
 
-        # Dosya yollarını sabitle
+        # Dosya yollarını sabitle (model_path absolute verilmişse aynen kullan)
         self.model_path = (base_dir / model_path) if not Path(model_path).is_absolute() else Path(model_path)
         self.feature_names_path = base_dir / "feature_names.pkl"
         self.zorluk_haritasi_path = base_dir / "zorluk_haritasi.pkl"

@@ -1,26 +1,39 @@
 import os
+import sys
 from typing import Tuple
 
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-from app.models import PerformansIstegi
+# Paket olarak çalışmıyorsa kök dizini sys.path'e ekle
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+# .env yolunu açıkça yükle (uvicorn farklı cwd ile çalışsa bile)
+load_dotenv(dotenv_path=ROOT_DIR / ".env")
+
+try:
+    from app.models import PerformansIstegi
+except ImportError:
+    from ..models import PerformansIstegi
 
 
 class PerformanceReportGenerator:
     """
     Gemini API kullanarak performans raporu üretir.
     """
-
+    """"
     def __init__(self, model_name: str = "gemini-1.5-pro") -> None:
-        load_dotenv()
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY çevre değişkeni tanımlanmadı.")
+            raise ValueError(f"GEMINI_API_KEY çevre değişkeni tanımlanmadı. .env konumu: {ROOT_DIR / 'C:\\Users\\Yunus Emre\\OneDrive\\Masaüstü\\personelim-ai\\.env'}")
 
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(model_name)
-
+    """
     def rapor_olustur(self, istek: PerformansIstegi, skor: float) -> Tuple[str, str]:
         """
         Özet ve detaylı rapor döndürür.
