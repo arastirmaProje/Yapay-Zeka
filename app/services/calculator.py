@@ -5,15 +5,7 @@ import joblib
 import pandas as pd
 
 # Paket olarak çalışmıyorsa kök dizini sys.path'e ekle
-ROOT_DIR = Path(__file__).resolve().parents[2]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
-
-try:
-    from app.models import PerformansIstegi
-except ImportError:  # Paket importu başarısızsa relatif deneyelim
-    from ..models import PerformansIstegi
-
+from app.models import PerformansIstegi
 
 class PerformansHesaplayici:
     """
@@ -63,6 +55,11 @@ class PerformansHesaplayici:
         tamamlanamayan = int(istek.tamamlanamayan_gorev_sayisi)
         zorluk_encoded = self._zorluk_ortalama(istek)
 
+        toplam_gorev = max(tamamlanan + tamamlanamayan, 1)
+        tamamlanma_orani = tamamlanan / toplam_gorev
+        mesai_sapmasi_mutlak = abs(hedeflenen_haftalik - gerceklesen_haftalik)
+        izin_esik_ustu = max(0, int(istek.kullanilan_izin_gunu) - 5)
+
         features = {
             "hedeflenen_gunluk_mesai_saati": hedeflenen_gunluk,
             "hedeflenen_haftalik_mesai_saati": hedeflenen_haftalik,
@@ -71,6 +68,10 @@ class PerformansHesaplayici:
             "tamamlanan_gorev_sayisi": tamamlanan,
             "tamamlanamayan_gorev_sayisi": tamamlanamayan,
             "zorluk_seviyesi_encoded": zorluk_encoded,
+            # Yeni türev feature'lar (eğer model böyle eğitildiyse)
+            "tamamlanma_orani": tamamlanma_orani,
+            "mesai_sapmasi_mutlak": mesai_sapmasi_mutlak,
+            "izin_esik_ustu": izin_esik_ustu,
         }
         return features
 
@@ -81,8 +82,8 @@ class PerformansHesaplayici:
         feature_vektor = self._hazirla_feature_vektor(istek)
 
         df = pd.DataFrame([feature_vektor])
-        # Modelin beklediği sütun sıralamasını koru
-        df = df[self.feature_names]
+        # Modelin beklediği sütunları reindex ile güvenli şekilde hizala
+        df = df.reindex(columns=self.feature_names, fill_value=0)
 
         skor = float(self.model.predict(df)[0])
         # Güvenli aralık

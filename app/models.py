@@ -1,30 +1,81 @@
-from pydantic import BaseModel
+from datetime import datetime, date
+from enum import Enum
 from typing import List, Optional
-from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+
+class ZorlukSeviyesi(str, Enum):
+    COK_KOLAY = "çok kolay"
+    KOLAY = "kolay"
+    ORTA = "orta"
+    ZOR = "zor"
+    COK_ZOR = "çok zor"
+
+
+class GorevDurumu(str, Enum):
+    TAMAMLANDI = "Tamamlandı"
+    TAMAMLANMADI = "Tamamlanmadı"
+    DEVAM_EDIYOR = "Devam ediyor"
+
 
 class GorevDetayiModel(BaseModel):
-    id: int
-    gorev_adi: str
-    zorluk_seviyesi: str
-    durum: str #örn: tamamlandi, devam ediyor
-    baslangic_tarihi: datetime
-    bitistarihi: datetime
-    aciklama: Optional[str] = None
-    geri_donut: Optional[str] = None
+    """
+    Çalışanın tek bir göreviyle ilgili detaylar.
+    """
 
-class PerformansIstegi(BaseModel): 
-    calisan_id: int
-    ad_soyad: str
-    tamamlanan_gorev_sayisi: int
-    tamamlanamayan_gorev_sayisi: int
-    hedeflenen_mesai_saati: float
-    gerceklesen_mesai_saati: float
-    kullanilan_izin_gunu: int #yıllık
-    gorevler: List[GorevDetayiModel]
+    id: int = Field(..., description="Görevin benzersiz ID'si")
+    gorev_adi: str = Field(..., description="Görevin başlığı / adı")
+    zorluk_seviyesi: ZorlukSeviyesi = Field(
+        ..., description="Görevin zorluk seviyesi"
+    )
+    durum: GorevDurumu = Field(
+        ..., description="Görevin mevcut durumu"
+    )
+    baslangic_tarihi: datetime = Field(
+        ..., description="Göreve başlanılan tarih-saat"
+    )
+    bitistarihi: datetime = Field(
+        ..., description="Görev tamamlandıysa bitiş tarih-saat"
+    )
+    aciklama: Optional[str] = Field(
+        None, description="Göreve dair ek açıklama / notlar"
+    )
+    geri_donut: Optional[str] = Field(
+        None, description="Yönetici veya müşteri geri bildirimi"
+    )
+
+
+class PerformansIstegi(BaseModel):
+    """
+    Performans hesaplama isteği (API input).
+    """
+
+    calisan_id: int = Field(..., description="Çalışanın benzersiz ID'si")
+    ad_soyad: str = Field(..., description="Çalışanın adı soyadı")
+
+    tamamlanan_gorev_sayisi: int = Field(..., ge=0)
+    tamamlanamayan_gorev_sayisi: int = Field(..., ge=0)
+    hedeflenen_mesai_saati: float = Field(..., ge=0, description="Haftalık hedef mesai")
+    gerceklesen_mesai_saati: float = Field(..., ge=0, description="Haftalık gerçekleşen mesai")
+    kullanilan_izin_gunu: int = Field(..., ge=0, description="Yıllık izin gün sayısı")
+
+
+    gorevler: List[GorevDetayiModel] = Field(
+        default_factory=list,
+        description="Çalışanın ilgili dönemdeki görevleri"
+    )
+
 
 class PerformansRaporu(BaseModel):
-    calisan_id: int
-    performans_skoru: float
-    rapor_ozeti: str
-    detayli_rapor: str
-    onceki_raporlar: Optional[List[str]] = None
+    """
+    Hesaplanan skor ve LLM tarafından üretilen rapor çıktısı (API output).
+    """
+
+    calisan_id: int = Field(..., description="Çalışanın benzersiz ID'si")
+    performans_skoru: float = Field(..., ge=0, le=100, description="0-100 arası skor")
+    rapor_ozeti: str = Field(..., description="Kısa özet / maddeler")
+    detayli_rapor: str = Field(..., description="Detaylı metin raporu")
+    onceki_raporlar: Optional[List[str]] = Field(
+        None, description="Varsa geçmiş rapor referansları/özetleri"
+    )

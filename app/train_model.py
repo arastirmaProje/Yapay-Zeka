@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 import joblib
 import random
 from sklearn.preprocessing import LabelEncoder
@@ -53,15 +55,58 @@ df= pd.DataFrame({
 })
 df.head()
 
-#model eğitimi
-#?? performans skoru hesaplama
+# Model eğitimi
+# Yeni hedef: yapay sinir ağı (MLPRegressor) ile performans skoru modellemek
 def skor_puani_hesapla(row):
-    max_gorev=5
-    gorev_skoru = (row['tamamlanan_gorev_sayisi'] - row['tamamlanamayan_gorev_sayisi']) / max_gorev * 100
-    mesai_farki= abs(row['hedeflenen_haftalik_mesai_saati'] - row['gerceklesen_haftalik_mesai_saati'])
-    mesai_skoru = max(0, 100 - mesai_farki * 2)  # Mesai farkı arttıkça skor düşer
-    toplam_skor = (gorev_skoru * 0.6) + (mesai_skoru * 0.4)
-    return max(0,min(100,toplam_skor))
+    """
+    Latent (gizli) ağırlıklarla sentetik skor:
+    - Program, görev/mesai/izin/zorluk önemini kendisi öğrenir (MLP/Regresör).
+    - Burada yalnızca "gerçek" skoru üretmek için kullanılacak karma fonksiyon var.
+    """
+    tamamlanan = row["tamamlanan_gorev_sayisi"]
+    tamamlanamayan = row["tamamlanamayan_gorev_sayisi"]
+    toplam_gorev = max(tamamlanan + tamamlanamayan, 1)
+
+    completion_rate = tamamlanan / toplam_gorev
+    failure_rate = tamamlanamayan / toplam_gorev
+
+    # Mesai uyumu (0-1 arası pozitif, sapma büyüdükçe azalır)
+    mesai_gap = abs(row["hedeflenen_haftalik_mesai_saati"] - row["gerceklesen_haftalik_mesai_saati"])
+    mesai_alignment = max(0.0, 1.0 - (mesai_gap / 20))  # ~20 saat sapma sıfırlar
+
+    # İzin: 0-1 arası, 5 güne kadar nötr, üstü azalan
+    izin = row["kullanilan_izin_gunu"]
+    izin_factor = 1.0 if izin <= 5 else max(0.0, 1.0 - (izin - 5) / 15)
+
+    # Zorluk: ölçeklenmiş katkı
+    zorluk_map = {"çok kolay": 1, "kolay": 2, "orta": 3, "zor": 4, "çok zor": 5}
+    zorluk_raw = row.get("zorluk_seviyesi", "orta")
+    zorluk_val = zorluk_map.get(str(zorluk_raw).lower(), 3)
+    zorluk_factor = (zorluk_val - 3) / 2  # -1..+1 aralığına yakınlar
+
+    # Gizli ağırlıklar (model bilmiyor, sadece "gerçek" skor için)
+    w_completion = 0.45
+    w_failure = -0.25
+    w_mesai = 0.20
+    w_izin = 0.08
+    w_zorluk = 0.12
+    bias = 0.05
+
+    latent_score = (
+        w_completion * completion_rate
+        + w_failure * failure_rate
+        + w_mesai * mesai_alignment
+        + w_izin * izin_factor
+        + w_zorluk * zorluk_factor
+        + bias
+    )
+
+    noise = np.random.normal(0, 0.02)
+    latent_score = latent_score + noise
+
+    # 0-100 skalasına taşı
+    skor = max(0, min(100, (latent_score * 100)))
+    return skor
 
 df['performans_skoru'] = df.apply(skor_puani_hesapla, axis=1)
 
@@ -85,7 +130,13 @@ zorluk_haritasi={
 
 df['zorluk_seviyesi_encoded']=df['zorluk_seviyesi'].map(zorluk_haritasi)
 
+df['toplam_gorev'] = (df['tamamlanan_gorev_sayisi'] + df['tamamlanamayan_gorev_sayisi']).apply(lambda x: max(x, 1))
 
+df['tamamlanma_orani'] = df['tamamlanan_gorev_sayisi'] / df['toplam_gorev']
+
+df['mesai_sapmasi_mutlak'] = abs(df['hedeflenen_haftalik_mesai_saati'] - df['gerceklesen_haftalik_mesai_saati'])
+
+df['izin_esik_ustu'] = df['kullanilan_izin_gunu'].apply(lambda x: max(0, x - 5))
 
 feature_names = [
     'hedeflenen_gunluk_mesai_saati',
@@ -94,46 +145,62 @@ feature_names = [
     'gerceklesen_haftalik_mesai_saati',
     'tamamlanan_gorev_sayisi',
     'tamamlanamayan_gorev_sayisi',
-    'zorluk_seviyesi_encoded'
+    'zorluk_seviyesi_encoded',
+    'tamamlanma_orani',
+    'mesai_sapmasi_mutlak',
+    'izin_esik_ustu'
 ]
 
-
-X = df[feature_names] 
+X = df[feature_names]
 y = df['performans_skoru']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
 print(f"Eğitim seti boyutu: {len(X_train)}")
 print(f"Test seti boyutu: {len(X_test)}")
 
-model = RandomForestRegressor(
-    n_estimators=100,
-    random_state=42,
-    min_samples_split=5,
-    max_depth=15,
-    min_samples_leaf=2,
-    n_jobs=-1
+# MLPRegressor + StandardScaler pipeline
+mlp_reg = Pipeline(
+    steps=[
+        ("scaler", StandardScaler()),
+        (
+            "mlp",
+            MLPRegressor(
+                hidden_layer_sizes=(128, 64, 32), # Daha derin katmanlar
+                activation="relu",
+                solver="adam",
+                alpha=1e-4, # Daha düşük ceza katsayısı
+                learning_rate="adaptive",
+                max_iter=1000, # Daha uzun eğitim
+                random_state=42,
+                early_stopping=True,
+                n_iter_no_change=20, # Sabır arttı
+                tol=1e-5 # Hassasiyet arttı
+            ),
+        ),
+    ]
 )
-
+model = mlp_reg
 model.fit(X_train, y_train)
 
-#tahmin değerlendirme
+# Tahmin değerlendirme
 y_pred_train = model.predict(X_train)
 y_pred_test = model.predict(X_test)
 
-#eğitim seti
-print("eğitim Seti Değerlendirme:")
+# Eğitim seti
+print("Eğitim Seti Değerlendirme:")
 print(f" MAE: {mean_absolute_error(y_train, y_pred_train):.2f}")
 print(f" RMSE: {np.sqrt(np.mean((y_train - y_pred_train) ** 2)):.2f}")
 print(f" R²: {r2_score(y_train, y_pred_train):.4f}")
-#test
+# Test
 print("Test Seti Değerlendirme:")
 print(f" MAE: {mean_absolute_error(y_test, y_pred_test):.2f}")
 print(f" RMSE: {np.sqrt(np.mean((y_test - y_pred_test) ** 2)):.2f}")
 print(f" R²: {r2_score(y_test, y_pred_test):.4f}")
 
-
-
+# Model ve yardımcı dosyaları kaydet
 joblib.dump(model, 'performans_model.pkl')
 print(" Model kaydedildi: performans_model.pkl")
 
