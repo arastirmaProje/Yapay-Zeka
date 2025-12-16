@@ -10,6 +10,17 @@ calculator = PerformansHesaplayici()
 report_generator = PerformanceReportGenerator()
 
 
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "message": "Personelim AI API çalışıyor",
+        "docs": "/docs",
+        "health": "/test",
+        "performans": "/api/performans",
+    }
+
+
 @app.get("/test")
 def read_root():
     return {"output": "Selamun Aleyküm dünya!"}
