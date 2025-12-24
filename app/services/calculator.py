@@ -3,8 +3,6 @@ from typing import Dict, Any
 import sys
 import joblib
 import pandas as pd
-
-# Paket olarak çalışmıyorsa kök dizini sys.path'e ekle
 from app.models import PerformansIstegi
 
 class PerformansHesaplayici:
@@ -13,15 +11,11 @@ class PerformansHesaplayici:
     """
 
     def __init__(self, model_path: str = "performans_model.pkl") -> None:
-        # Proje kökü: .../personelim-ai
         base_dir = Path(__file__).resolve().parents[2]
-
-        # Dosya yollarını sabitle (model_path absolute verilmişse aynen kullan)
         self.model_path = (base_dir / model_path) if not Path(model_path).is_absolute() else Path(model_path)
         self.feature_names_path = base_dir / "feature_names.pkl"
         self.zorluk_haritasi_path = base_dir / "zorluk_haritasi.pkl"
 
-        # Model ve yardımcı varlıkları yükle
         if not self.model_path.exists():
             raise FileNotFoundError(f"Model dosyası bulunamadı: {self.model_path}")
         self.model = joblib.load(self.model_path)
@@ -36,7 +30,7 @@ class PerformansHesaplayici:
 
     def _zorluk_ortalama(self, istek: PerformansIstegi) -> float:
         if not istek.gorevler:
-            return 3.0  # Nötr varsayılan
+            return 3.0
 
         encoded = [
             self.zorluk_haritasi.get(gorev.zorluk_seviyesi.lower(), 3)
@@ -45,7 +39,6 @@ class PerformansHesaplayici:
         return sum(encoded) / len(encoded)
 
     def _hazirla_feature_vektor(self, istek: PerformansIstegi) -> Dict[str, Any]:
-        # Varsayımlar: verilen mesai saatleri haftalık, günlük için 5'e bölünüyor
         hedeflenen_haftalik = float(istek.hedeflenen_mesai_saati)
         hedeflenen_gunluk = hedeflenen_haftalik / 5
         gerceklesen_haftalik = float(istek.gerceklesen_mesai_saati)
@@ -68,7 +61,6 @@ class PerformansHesaplayici:
             "tamamlanan_gorev_sayisi": tamamlanan,
             "tamamlanamayan_gorev_sayisi": tamamlanamayan,
             "zorluk_seviyesi_encoded": zorluk_encoded,
-            # Yeni türev feature'lar (eğer model böyle eğitildiyse)
             "tamamlanma_orani": tamamlanma_orani,
             "mesai_sapmasi_mutlak": mesai_sapmasi_mutlak,
             "izin_esik_ustu": izin_esik_ustu,
@@ -82,9 +74,7 @@ class PerformansHesaplayici:
         feature_vektor = self._hazirla_feature_vektor(istek)
 
         df = pd.DataFrame([feature_vektor])
-        # Modelin beklediği sütunları reindex ile güvenli şekilde hizala
         df = df.reindex(columns=self.feature_names, fill_value=0)
 
         skor = float(self.model.predict(df)[0])
-        # Güvenli aralık
         return max(0.0, min(100.0, skor))

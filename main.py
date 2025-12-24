@@ -1,6 +1,11 @@
 from fastapi import FastAPI, HTTPException
 
-from app.models import PerformansIstegi, PerformansRaporu
+from app.models import (
+    PerformansIstegi,
+    PerformansRaporu,
+    TopluPerformansSkoru,
+    TopluPerformansSkorlari,
+)
 from app.services.calculator import PerformansHesaplayici
 from app.services.generator import PerformanceReportGenerator
 
@@ -18,6 +23,7 @@ def root():
         "docs": "/docs",
         "health": "/test",
         "performans": "/api/performans",
+        "topluskor": "/api/topluskor",
     }
 
 
@@ -38,4 +44,29 @@ def performans_hesapla(istek: PerformansIstegi):
             detayli_rapor=detay,
         )
     except Exception as exc:  # API seviyesinde güvenli hata
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/topluskor", response_model=TopluPerformansSkorlari)
+def toplu_skor_hesapla(istekler: list[PerformansIstegi]):
+    """
+    Toplu performans skoru hesaplama endpoint'i.
+    Tüm çalışanların sadece performans skorunu hesaplar (rapor oluşturmaz).
+    """
+    try:
+        skorlar = []
+        for istek in istekler:
+            skor = calculator.hesapla(istek)
+            skorlar.append(
+                TopluPerformansSkoru(
+                    calisan_id=istek.calisan_id,
+                    ad_soyad=istek.ad_soyad,
+                    performans_skoru=skor,
+                )
+            )
+        return TopluPerformansSkorlari(
+            toplam_calisan=len(skorlar),
+            skorlar=skorlar,
+        )
+    except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

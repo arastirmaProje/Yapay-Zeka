@@ -16,7 +16,6 @@ else:
     print("--- SENİN KULLANABİLECEĞİN MODELLER ---")
     try:
         for m in genai.list_models():
-            # Sadece metin/chat üretebilen modelleri filtrele
             if 'generateContent' in m.supported_generation_methods:
                 # Başındaki "models/" kısmını atarak temiz ismi yazdırıyoruz
                 clean_name = m.name.replace("models/", "")

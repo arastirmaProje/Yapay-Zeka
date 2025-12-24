@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from enum import Enum
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -51,7 +52,7 @@ class PerformansIstegi(BaseModel):
     Performans hesaplama isteği (API input).
     """
 
-    calisan_id: int = Field(..., description="Çalışanın benzersiz ID'si")
+    calisan_id: UUID = Field(..., description="Çalışanın benzersiz ID'si (UUID)")
     ad_soyad: str = Field(..., description="Çalışanın adı soyadı")
 
     tamamlanan_gorev_sayisi: int = Field(..., ge=0)
@@ -72,10 +73,29 @@ class PerformansRaporu(BaseModel):
     Hesaplanan skor ve LLM tarafından üretilen rapor çıktısı (API output).
     """
 
-    calisan_id: int = Field(..., description="Çalışanın benzersiz ID'si")
+    calisan_id: UUID = Field(..., description="Çalışanın benzersiz ID'si (UUID)")
     performans_skoru: float = Field(..., ge=0, le=100, description="0-100 arası skor")
     rapor_ozeti: str = Field(..., description="Kısa özet / maddeler")
     detayli_rapor: str = Field(..., description="Detaylı metin raporu")
     onceki_raporlar: Optional[List[str]] = Field(
         None, description="Varsa geçmiş rapor referansları/özetleri"
     )
+
+
+class TopluPerformansSkoru(BaseModel):
+    """
+    Toplu sorgu için sadece performans skoru (rapor yok).
+    """
+
+    calisan_id: UUID = Field(..., description="Çalışanın benzersiz ID'si (UUID)")
+    ad_soyad: str = Field(..., description="Çalışanın adı soyadı")
+    performans_skoru: float = Field(..., ge=0, le=100, description="0-100 arası skor")
+
+
+class TopluPerformansSkorlari(BaseModel):
+    """
+    Toplu sorgu sonucu - tüm çalışanların skorları.
+    """
+
+    toplam_calisan: int = Field(..., description="Toplam işlenen çalışan sayısı")
+    skorlar: List[TopluPerformansSkoru] = Field(..., description="Çalışan skorları listesi")

@@ -9,6 +9,7 @@ import joblib
 import random
 from sklearn.preprocessing import LabelEncoder
 
+
 n=10000
 
 calisan_id = np.random.randint(1, 10001, n)
@@ -56,7 +57,6 @@ df= pd.DataFrame({
 df.head()
 
 # Model eğitimi
-# Yeni hedef: yapay sinir ağı (MLPRegressor) ile performans skoru modellemek
 def skor_puani_hesapla(row):
     """
     Latent (gizli) ağırlıklarla sentetik skor:

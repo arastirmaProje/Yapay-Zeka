@@ -7,12 +7,9 @@ from dotenv import load_dotenv
 
 from pathlib import Path
 
-# Paket olarak çalışmıyorsa kök dizini sys.path'e ekle
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
-
-# .env yolunu açıkça yükle (uvicorn farklı cwd ile çalışsa bile)
 load_dotenv(dotenv_path=ROOT_DIR / ".env")
 
 try:
@@ -27,10 +24,8 @@ class PerformanceReportGenerator:
     """
 
 class PerformanceReportGenerator:
-    # "gemini-1.5-flash" şu an en kararlı ve hızlı çalışan modeldir.
     def __init__(self, model_name: str = "gemini-2.5-flash") -> None:
         api_key = os.getenv("GEMINI_API_KEY")
-        # ... geri kalan kodlar aynı
         if not api_key:
             raise ValueError("GEMINI_API_KEY çevre değişkeni tanımlanmadı. Lütfen proje kökünde .env içinde ayarlayın.")
 
@@ -58,7 +53,7 @@ Detay:
 - En fazla 300 kelime
 - Güçlü yönler, gelişim alanları, somut öneriler
 
-Çalışan: {istek.ad_soyad} (ID: {istek.calisan_id})
+Çalışan: {istek.ad_soyad} (ID: {str(istek.calisan_id)})
 Performans Skoru: {skor:.2f}/100
 Hedeflenen haftalık mesai: {istek.hedeflenen_mesai_saati} saat
 Gerçekleşen haftalık mesai: {istek.gerceklesen_mesai_saati} saat
