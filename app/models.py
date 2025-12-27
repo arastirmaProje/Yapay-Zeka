@@ -25,7 +25,7 @@ class GorevDetayiModel(BaseModel):
     Çalışanın tek bir göreviyle ilgili detaylar.
     """
 
-    id: int = Field(..., description="Görevin benzersiz ID'si")
+    id: UUID = Field(..., description="Görevin benzersiz ID'si (UUID)")
     gorev_adi: str = Field(..., description="Görevin başlığı / adı")
     zorluk_seviyesi: ZorlukSeviyesi = Field(
         ..., description="Görevin zorluk seviyesi"
