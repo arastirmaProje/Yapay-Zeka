@@ -1,0 +1,62 @@
+{
+  "calisan_id": "550e8400-e29b-41d4-a716-446655440000",
+  "ad_soyad": "Yusuf Kaan Usta",
+  "tamamlanan_gorev_sayisi": 5,
+  "tamamlanamayan_gorev_sayisi": 1,
+  "hedeflenen_mesai_saati": 45,
+  "gerceklesen_mesai_saati": 44,
+  "kullanilan_izin_gunu": 2,
+  "gorevler": [
+    {
+      "id": 1001,
+      "gorev_adi": "API Entegrasyonu",
+      "zorluk_seviyesi": "zor",
+      "durum": "Tamamlandı",
+      "baslangic_tarihi": "2025-01-01T09:00:00",
+      "bitistarihi": "2025-01-03T18:00:00",
+      "aciklama": "Ödeme servisi entegrasyonu tamamlandı. Stripe API ile başarılı entegrasyon yapıldı.",
+      "geri_donut": "Müşteri memnun, hızlı teslimat için teşekkür edildi."
+    },
+    {
+      "id": 1002,
+      "gorev_adi": "Hata Düzeltme",
+      "zorluk_seviyesi": "orta",
+      "durum": "Tamamlandı",
+      "baslangic_tarihi": "2025-01-04T09:00:00",
+      "bitistarihi": "2025-01-05T18:00:00",
+      "aciklama": "Login akışındaki session timeout hatası düzeltildi.",
+      "geri_donut": "Test ekibi onayladı."
+    },
+    {
+      "id": 1003,
+      "gorev_adi": "Raporlama Ekranı",
+      "zorluk_seviyesi": "zor",
+      "durum": "Tamamlandı",
+      "baslangic_tarihi": "2025-01-06T09:00:00",
+      "bitistarihi": "2025-01-08T18:00:00",
+      "aciklama": "Yeni dashboard ekranı geliştirildi. Grafikler ve filtreleme özellikleri eklendi.",
+      "geri_donut": "Kullanıcı deneyimi çok iyi, takım tebrik etti."
+    },
+    {
+      "id": 1004,
+      "gorev_adi": "CSS Düzenlemesi",
+      "zorluk_seviyesi": "kolay",
+      "durum": "Tamamlandı",
+      "baslangic_tarihi": "2025-01-09T09:00:00",
+      "bitistarihi": "2025-01-10T18:00:00",
+      "aciklama": "Responsive tasarım iyileştirmeleri yapıldı.",
+      "geri_donut": null
+    },
+    {
+      "id": 1005,
+      "gorev_adi": "Performans Testi",
+      "zorluk_seviyesi": "orta",
+      "durum": "Tamamlanmadı",
+      "baslangic_tarihi": "2025-01-11T09:00:00",
+      "bitistarihi": "2025-01-13T18:00:00",
+      "aciklama": "Load testing çalışmaları devam ediyor, bazı optimizasyonlar gerekli.",
+      "geri_donut": "Zamanında tamamlanamadı, ek süre talep edildi."
+    }
+  ]
+}
+

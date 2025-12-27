@@ -70,7 +70,7 @@ class PerformansIstegi(BaseModel):
 
 class PerformansRaporu(BaseModel):
     """
-    Hesaplanan skor ve LLM tarafından üretilen rapor çıktısı (API output).
+    Hesaplanan skor ve LLM tarafından üretilen rapor çıktısı
     """
 
     calisan_id: UUID = Field(..., description="Çalışanın benzersiz ID'si (UUID)")
@@ -84,7 +84,7 @@ class PerformansRaporu(BaseModel):
 
 class TopluPerformansSkoru(BaseModel):
     """
-    Toplu sorgu için sadece performans skoru (rapor yok).
+    Toplu sorgu için sadece performans skoru.
     """
 
     calisan_id: UUID = Field(..., description="Çalışanın benzersiz ID'si (UUID)")

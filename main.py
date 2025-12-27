@@ -29,10 +29,10 @@ def root():
 
 @app.get("/test")
 def read_root():
-    return {"output": "Selamun Aleyküm dünya!"}
+    return {"output": "API çalışıyor"}
 
 
-@app.post("/api/performans", response_model=PerformansRaporu)
+@app.post("/api/performans", response_model=PerformansRaporu, summary="Rapor Oluştur")
 def performans_hesapla(istek: PerformansIstegi):
     try:
         skor = calculator.hesapla(istek)
@@ -43,16 +43,12 @@ def performans_hesapla(istek: PerformansIstegi):
             rapor_ozeti=ozet,
             detayli_rapor=detay,
         )
-    except Exception as exc:  # API seviyesinde güvenli hata
+    except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/api/topluskor", response_model=TopluPerformansSkorlari)
+@app.post("/api/topluskor", response_model=TopluPerformansSkorlari, summary="Toplu Skor Hesapla")
 def toplu_skor_hesapla(istekler: list[PerformansIstegi]):
-    """
-    Toplu performans skoru hesaplama endpoint'i.
-    Tüm çalışanların sadece performans skorunu hesaplar (rapor oluşturmaz).
-    """
     try:
         skorlar = []
         for istek in istekler:

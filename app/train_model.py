@@ -56,13 +56,7 @@ df= pd.DataFrame({
 })
 df.head()
 
-# Model eğitimi
 def skor_puani_hesapla(row):
-    """
-    Latent (gizli) ağırlıklarla sentetik skor:
-    - Program, görev/mesai/izin/zorluk önemini kendisi öğrenir (MLP/Regresör).
-    - Burada yalnızca "gerçek" skoru üretmek için kullanılacak karma fonksiyon var.
-    """
     tamamlanan = row["tamamlanan_gorev_sayisi"]
     tamamlanamayan = row["tamamlanamayan_gorev_sayisi"]
     toplam_gorev = max(tamamlanan + tamamlanamayan, 1)
@@ -70,21 +64,17 @@ def skor_puani_hesapla(row):
     completion_rate = tamamlanan / toplam_gorev
     failure_rate = tamamlanamayan / toplam_gorev
 
-    # Mesai uyumu (0-1 arası pozitif, sapma büyüdükçe azalır)
     mesai_gap = abs(row["hedeflenen_haftalik_mesai_saati"] - row["gerceklesen_haftalik_mesai_saati"])
-    mesai_alignment = max(0.0, 1.0 - (mesai_gap / 20))  # ~20 saat sapma sıfırlar
+    mesai_alignment = max(0.0, 1.0 - (mesai_gap / 20))
 
-    # İzin: 0-1 arası, 5 güne kadar nötr, üstü azalan
     izin = row["kullanilan_izin_gunu"]
     izin_factor = 1.0 if izin <= 5 else max(0.0, 1.0 - (izin - 5) / 15)
 
-    # Zorluk: ölçeklenmiş katkı
     zorluk_map = {"çok kolay": 1, "kolay": 2, "orta": 3, "zor": 4, "çok zor": 5}
     zorluk_raw = row.get("zorluk_seviyesi", "orta")
     zorluk_val = zorluk_map.get(str(zorluk_raw).lower(), 3)
-    zorluk_factor = (zorluk_val - 3) / 2  # -1..+1 aralığına yakınlar
+    zorluk_factor = (zorluk_val - 3) / 2
 
-    # Gizli ağırlıklar (model bilmiyor, sadece "gerçek" skor için)
     w_completion = 0.45
     w_failure = -0.25
     w_mesai = 0.20
@@ -103,8 +93,6 @@ def skor_puani_hesapla(row):
 
     noise = np.random.normal(0, 0.02)
     latent_score = latent_score + noise
-
-    # 0-100 skalasına taşı
     skor = max(0, min(100, (latent_score * 100)))
     return skor
 
@@ -161,23 +149,22 @@ X_train, X_test, y_train, y_test = train_test_split(
 print(f"Eğitim seti boyutu: {len(X_train)}")
 print(f"Test seti boyutu: {len(X_test)}")
 
-# MLPRegressor + StandardScaler pipeline
 mlp_reg = Pipeline(
     steps=[
         ("scaler", StandardScaler()),
         (
             "mlp",
             MLPRegressor(
-                hidden_layer_sizes=(128, 64, 32), # Daha derin katmanlar
+                hidden_layer_sizes=(128, 64, 32),
                 activation="relu",
                 solver="adam",
-                alpha=1e-4, # Daha düşük ceza katsayısı
+                alpha=1e-4,
                 learning_rate="adaptive",
-                max_iter=1000, # Daha uzun eğitim
+                max_iter=1000,
                 random_state=42,
                 early_stopping=True,
-                n_iter_no_change=20, # Sabır arttı
-                tol=1e-5 # Hassasiyet arttı
+                n_iter_no_change=20,
+                tol=1e-5
             ),
         ),
     ]
@@ -185,11 +172,10 @@ mlp_reg = Pipeline(
 model = mlp_reg
 model.fit(X_train, y_train)
 
-# Tahmin değerlendirme
 y_pred_train = model.predict(X_train)
 y_pred_test = model.predict(X_test)
 
-# Eğitim seti
+
 print("Eğitim Seti Değerlendirme:")
 print(f" MAE: {mean_absolute_error(y_train, y_pred_train):.2f}")
 print(f" RMSE: {np.sqrt(np.mean((y_train - y_pred_train) ** 2)):.2f}")

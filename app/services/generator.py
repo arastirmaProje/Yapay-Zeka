@@ -19,11 +19,6 @@ except ImportError:
 
 
 class PerformanceReportGenerator:
-    """
-    Gemini API kullanarak performans raporu üretir.
-    """
-
-class PerformanceReportGenerator:
     def __init__(self, model_name: str = "gemini-2.5-flash") -> None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
