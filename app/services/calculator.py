@@ -67,14 +67,49 @@ class PerformansHesaplayici:
         }
         return features
 
+    def _mesai_bonus_ceza_hesapla(self, hedeflenen: float, gerceklesen: float) -> float:
+        """
+        Mesai saatine göre bonus/ceza hesaplar.
+        
+        Mantık:
+        - Hedefin %125'i (%25 üzeri) ile %150 arası → + bonus (pozitif etki)
+        - Hedefin %150'sinden fazla → - ceza (aşırı mesai, verimlilik düşüyor)
+        
+        Returns: Bonus/ceza puanı (-10 ile +5 arası)
+        """
+        if hedeflenen <= 0:
+            return 0.0
+        
+        yuzde_oran = (gerceklesen / hedeflenen) * 100
+        
+        if 125.0 <= yuzde_oran <= 150.0:
+            bonus = 2.0 + ((yuzde_oran - 125.0) / 25.0) * 3.0
+            return min(5.0, bonus)
+        
+        elif yuzde_oran > 150.0:
+            if yuzde_oran <= 200.0:
+                ceza = -((yuzde_oran - 150.0) / 50.0) * 10.0
+            else:
+                ceza = -10.0
+            return max(-10.0, ceza)
+        
+        return 0.0
+
     def hesapla(self, istek: PerformansIstegi) -> float:
         """
         Performans skorunu 0-100 arasında döndürür.
+        Mesai saatine göre bonus/ceza uygulanır.
         """
         feature_vektor = self._hazirla_feature_vektor(istek)
 
         df = pd.DataFrame([feature_vektor])
         df = df.reindex(columns=self.feature_names, fill_value=0)
 
-        skor = float(self.model.predict(df)[0])
-        return max(0.0, min(100.0, skor))
+        model_skor = float(self.model.predict(df)[0])
+        
+        mesai_bonus_ceza = self._mesai_bonus_ceza_hesapla(
+            istek.hedeflenen_mesai_saati,
+            istek.gerceklesen_mesai_saati
+        )
+        final_skor = model_skor + mesai_bonus_ceza
+        return max(0.0, min(100.0, final_skor))
