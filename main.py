@@ -36,16 +36,17 @@ def read_root():
 def performans_hesapla(istek: PerformansIstegi):
     try:
         skor = calculator.hesapla(istek)
-        ozet, detay = report_generator.rapor_olustur(istek, skor)
+        analiz = calculator.analiz_ozeti_getir(istek)        # ← YENİ
+        ozet, detay, grafik = report_generator.rapor_olustur(istek, skor, analiz)  # ← GÜNCELLENDİ
         return PerformansRaporu(
             calisan_id=istek.calisan_id,
             performans_skoru=skor,
             rapor_ozeti=ozet,
             detayli_rapor=detay,
+            grafik_verisi=grafik,                            # ← YENİ
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-
 
 @app.post("/api/topluskor", response_model=TopluPerformansSkorlari, summary="Toplu Skor Hesapla")
 def toplu_skor_hesapla(istekler: list[PerformansIstegi]):

@@ -2,7 +2,7 @@ from datetime import datetime, date
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID
-
+from typing import Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -69,17 +69,12 @@ class PerformansIstegi(BaseModel):
 
 
 class PerformansRaporu(BaseModel):
-    """
-    Hesaplanan skor ve LLM tarafından üretilen rapor çıktısı
-    """
-
-    calisan_id: UUID = Field(..., description="Çalışanın benzersiz ID'si (UUID)")
-    performans_skoru: float = Field(..., ge=0, le=100, description="0-100 arası skor")
-    rapor_ozeti: str = Field(..., description="Kısa özet / maddeler")
-    detayli_rapor: str = Field(..., description="Detaylı metin raporu")
-    onceki_raporlar: Optional[List[str]] = Field(
-        None, description="Varsa geçmiş rapor referansları/özetleri"
-    )
+    calisan_id: UUID
+    performans_skoru: float = Field(..., ge=0, le=100)
+    rapor_ozeti: str
+    detayli_rapor: str
+    grafik_verisi: Optional[Dict[str, Any]] = Field(None)   # ← YENİ
+    onceki_raporlar: Optional[List[str]] = None
 
 
 class TopluPerformansSkoru(BaseModel):
