@@ -54,7 +54,7 @@ class PerformansHesaplayici:
         if istek.gerceklesen_mesai_saati <= 0:
             return 0.0
         gph = istek.tamamlanan_gorev_sayisi / istek.gerceklesen_mesai_saati
-        return min(100.0, (gph / 0.5) * 100)*100
+        return min(100.0, (gph / 0.5) * 100)*10
 
     def deadline_uyum_skoru_hesapla(self, istek: PerformansIstegi) -> float:
         """
