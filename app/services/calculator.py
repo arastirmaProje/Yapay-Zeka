@@ -1,10 +1,15 @@
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Optional, List
+from statistics import mean
 import joblib
 import pandas as pd
-from app.models import PerformansIstegi
+from app.models import PerformansIstegi, DepartmanCalisaniIstegi
+from app.models import GorevDetayiModel
 
 class PerformansHesaplayici:
+    """
+    Eğitilmiş model ile çalışan performans skorunu hesaplar.
+    """
 
     def __init__(self, model_path: str = "performans_model.pkl") -> None:
         base_dir = Path(__file__).resolve().parents[2]
@@ -24,6 +29,7 @@ class PerformansHesaplayici:
             raise FileNotFoundError(f"Zorluk haritası bulunamadı: {self.zorluk_haritasi_path}")
         self.zorluk_haritasi = joblib.load(self.zorluk_haritasi_path)
 
+    # ── mevcut metodlar ───────────────────────────────────────────────────
 
     def _zorluk_ortalama(self, istek: PerformansIstegi) -> float:
         if not istek.gorevler:
@@ -44,7 +50,7 @@ class PerformansHesaplayici:
             return max(-10.0, -((min(yuzde_oran, 200.0) - 150.0) / 50.0) * 10.0)
         return 0.0
 
-    # ek metrikler ────────────────────────────────────────────────
+    # ── ek metrikler ──────────────────────────────────────────────────────
 
     def verimlilik_skoru_hesapla(self, istek: PerformansIstegi) -> float:
         """
@@ -54,19 +60,20 @@ class PerformansHesaplayici:
         if istek.gerceklesen_mesai_saati <= 0:
             return 0.0
         gph = istek.tamamlanan_gorev_sayisi / istek.gerceklesen_mesai_saati
-        return min(100.0, (gph / 0.5) * 100)*10
+        return min(100.0, (gph / 0.5) * 100)
 
-    def deadline_uyum_skoru_hesapla(self, istek: PerformansIstegi) -> float:
+    def deadline_uyum_skoru_hesapla(self, istek: PerformansIstegi) -> Optional[float]:
         """
-        Tamamlanan görevlerin başlangıç→bitiş süresine bakarak
-        zamanında teslim edilip edilmediğini ölçer.
-        Şimdilik: tamamlanan / toplam * 100 (ilerleyen aşamada planlanan_sure eklenebilir)
+        Tamamlanan görevlerin toplam göreve oranı.
+        Görev verisi yoksa None döner — mobil taraf 'Veri Yok' olarak gösterir.
+        İleride planlanan_sure eklenince gerçek deadline analizi yapılacak.
         """
-        tamamlanan = [g for g in istek.gorevler if g.durum.value == "Tamamlandı"]
         toplam = len(istek.gorevler)
         if toplam == 0:
-            return 50.0  # veri yoksa nötr
-        return (len(tamamlanan) / toplam) * 100
+            return None  # veri yok, metriği hesaplama
+
+        tamamlanan = [g for g in istek.gorevler if g.durum.value == "Tamamlandı"]
+        return round((len(tamamlanan) / toplam) * 100, 1)
 
     def zorluk_basari_dengesi_hesapla(self, istek: PerformansIstegi) -> float:
         """
@@ -88,11 +95,12 @@ class PerformansHesaplayici:
 
         if toplam_agirlik == 0:
             return 50.0
-        return (kazanilan_agirlik / toplam_agirlik) * 100
+        return round((kazanilan_agirlik / toplam_agirlik) * 100, 1)
 
     def analiz_ozeti_getir(self, istek: PerformansIstegi) -> Dict[str, Any]:
         """
         Tüm ek metrikleri dict olarak döndürür — generator.py'a iletilir.
+        deadline_uyum_skoru None gelebilir, generator ve mobil bunu handle eder.
         """
         tamamlanan = istek.tamamlanan_gorev_sayisi
         tamamlanamayan = istek.tamamlanamayan_gorev_sayisi
@@ -101,16 +109,16 @@ class PerformansHesaplayici:
         return {
             "tamamlanma_orani": round((tamamlanan / toplam) * 100, 1),
             "verimlilik_skoru": round(self.verimlilik_skoru_hesapla(istek), 1),
-            "deadline_uyum_skoru": round(self.deadline_uyum_skoru_hesapla(istek), 1),
-            "zorluk_basari_dengesi": round(self.zorluk_basari_dengesi_hesapla(istek), 1),
+            "deadline_uyum_skoru": self.deadline_uyum_skoru_hesapla(istek),  # None olabilir
+            "zorluk_basari_dengesi": self.zorluk_basari_dengesi_hesapla(istek),
             "mesai_kullanim_orani": round(
                 (istek.gerceklesen_mesai_saati / istek.hedeflenen_mesai_saati * 100)
-                if istek.hedeflenen_mesai_saati > 0 else 0, 1
+                if istek.hedeflenen_mesai_saati > 0 else 0.0, 1
             ),
             "ortalama_zorluk": round(self._zorluk_ortalama(istek), 2),
         }
 
-    def _hazirla_feature_vektor(self, istek: PerformansIstegi) -> Dict[str, Any]:
+    def _hazirla_feature_vektor(self, istek) -> Dict[str, Any]:
         hedeflenen_haftalik = float(istek.hedeflenen_mesai_saati)
         hedeflenen_gunluk = hedeflenen_haftalik / 5
         gerceklesen_haftalik = float(istek.gerceklesen_mesai_saati)
@@ -122,7 +130,7 @@ class PerformansHesaplayici:
         tamamlanma_orani = tamamlanan / toplam_gorev
         mesai_sapmasi_mutlak = abs(hedeflenen_haftalik - gerceklesen_haftalik)
         izin_esik_ustu = max(0, int(istek.kullanilan_izin_gunu) - 5)
-
+ 
         return {
             "hedeflenen_gunluk_mesai_saati": hedeflenen_gunluk,
             "hedeflenen_haftalik_mesai_saati": hedeflenen_haftalik,
@@ -135,8 +143,8 @@ class PerformansHesaplayici:
             "mesai_sapmasi_mutlak": mesai_sapmasi_mutlak,
             "izin_esik_ustu": izin_esik_ustu,
         }
-
-    def hesapla(self, istek: PerformansIstegi) -> float:
+ 
+    def hesapla(self, istek) -> float:
         feature_vektor = self._hazirla_feature_vektor(istek)
         df = pd.DataFrame([feature_vektor])
         df = df.reindex(columns=self.feature_names, fill_value=0)
@@ -146,3 +154,44 @@ class PerformansHesaplayici:
             istek.gerceklesen_mesai_saati
         )
         return max(0.0, min(100.0, model_skor + mesai_bonus_ceza))
+    
+    def departman_skoru_hesapla(self,calisan_skorlari: list[float],calisan_analizleri: list[dict[str,Any]],) -> float:
+        '''' Çalışan skorları ve metriklerinden ağırlıklı departman skoru üretir.'''
+        ort_skor = mean(calisan_skorlari)
+        ort_tamamlanma = mean([a['tamamlanma_orani'] for a in calisan_analizleri])
+        ort_zorluk_basari = mean([a["zorluk_basari_dengesi"] for a in calisan_analizleri])
+        ort_mesai = mean([min(100.0, a["mesai_kullanim_orani"]) for a in calisan_analizleri])
+        
+        skor=(
+            ort_skor * 0.4 +
+            ort_tamamlanma * 0.25 +
+            ort_zorluk_basari * 0.20 +
+            ort_mesai * 0.15
+        )
+        return round(min(100.0,max(0.0,skor)),2)
+    
+    def departman_analizi_getir(self,calisan_analizleri:list[dict[str,Any]],calisan_skorlari:list[float],)-> dict[str,Any]:
+        '''
+        Departman genelinde ortalama metrikleri döndürür.
+        deadline_uyum_skoru None olan çalışanlar ortalamadan hariç tutulur.
+        '''
+        
+        deadline_skorlari = [
+            a["deadline_uyum_skoru"]
+            for a in calisan_analizleri
+            if a["deadline_uyum_skoru"] is not None
+        ]
+ 
+        return {
+            "ortalama_performans_skoru": round(mean(calisan_skorlari), 2),
+            "en_yuksek_skor": round(max(calisan_skorlari), 2),
+            "en_dusuk_skor": round(min(calisan_skorlari), 2),
+            "ortalama_tamamlanma_orani": round(mean([a["tamamlanma_orani"] for a in calisan_analizleri]), 1),
+            "ortalama_verimlilik": round(mean([a["verimlilik_skoru"] for a in calisan_analizleri]), 1),
+            "ortalama_deadline_uyumu": round(mean(deadline_skorlari), 1) if deadline_skorlari else None,
+            "ortalama_zorluk_basari": round(mean([a["zorluk_basari_dengesi"] for a in calisan_analizleri]), 1),
+            "ortalama_mesai_kullanimi": round(mean([a["mesai_kullanim_orani"] for a in calisan_analizleri]), 1),
+        }
+        
+
+        

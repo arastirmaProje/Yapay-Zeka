@@ -2,10 +2,11 @@ import os
 import json
 import sys
 from typing import Tuple, Dict, Any
-
+from app.models import Departmanİstegi
 import google.generativeai as genai
 from dotenv import load_dotenv
 from pathlib import Path
+from app.models import GorevDetayiModel,GorevDurumu
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -14,9 +15,18 @@ load_dotenv(dotenv_path=ROOT_DIR / ".env")
 
 try:
     from app.models import PerformansIstegi
+    from app.models import Departmanİstegi
+    from app.models import GorevAnalizİstegi
+    from app.models import GorevAnalizSonucu
+    from app.models import GorevDurumu
+    from app.models import BeklemeTuru
 except ImportError:
     from ..models import PerformansIstegi
-
+    from app.models import Departmanİstegi
+    from app.models import GorevAnalizİstegi
+    from app.models import GorevAnalizSonucu
+    from app.models import GorevDurumu
+    from app.models import BeklemeTuru
 
 class PerformanceReportGenerator:
 
@@ -26,6 +36,15 @@ class PerformanceReportGenerator:
             raise ValueError("GEMINI_API_KEY çevre değişkeni tanımlanmadı.")
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(model_name)
+        
+    def FeedbackAnalizi(self, gorev: GorevDetayiModel,GorevDurumu) -> str:
+        '''
+        Görev açıklamalarını analiz ederek yapay zeka destekli geri bildirim üretir.'''
+        if not GorevDurumu:
+            return "Görev durumu bilgisi bulunmamaktadır."
+        if GorevDurumu == GorevDurumu.KAPATILDI:
+            return "Bu görev kapatılmış görünüyor. Lütfen görevin neden kapatıldığını ve gelecekte benzer durumları önlemek için neler yapılabileceğini yöneticinizle görüşün."
+            
 
     def _gorev_metni_olustur(self, istek: PerformansIstegi) -> str:
         if not istek.gorevler:
@@ -75,7 +94,7 @@ class PerformanceReportGenerator:
 
         return json.loads(temiz)
 
-    def _guclu_durum_belirle(self, skor: float) -> str:
+    def _genel_durum_belirle(self, skor: float) -> str:
         if skor >= 85:
             return "Mükemmel"
         elif skor >= 70:
@@ -95,7 +114,7 @@ class PerformanceReportGenerator:
         Returns: (ozet, detay, grafik_verisi)
         """
         gorev_metni = self._gorev_metni_olustur(istek)
-        genel_durum = self._guclu_durum_belirle(skor)
+        genel_durum = self._genel_durum_belirle(skor)
 
         prompt = f"""
 Aşağıdaki çalışan performans verilerini analiz ederek bir İK raporu oluştur.
@@ -106,10 +125,13 @@ Aşağıdaki çalışan performans verilerini analiz ederek bir İK raporu oluş
 - Şablon ifadeler kullanma ([Dönem Belirtiniz] gibi placeholder yazma)
 - Tüm metinler Türkçe olsun
 - Rakamları yorumlarken aşağıdaki bağlamı dikkate al
+- Her madde veya cümle birbirinden FARKLI bilgi içermeli, aynı fikri farklı kelimelerle tekrar etme  
+- ozet_maddeler, guclu_yonler, gelisim_alanlari, somut_oneriler alanları birbirini tekrar etmemeli 
+- detayli_analiz bu alanların kısa bir özeti olmamalı, daha derin bir yorum içermeli 
 
 BAĞLAM:
 - Performans skoru 0-100 arasında, {skor:.1f} puan aldı → Genel Durum: {genel_durum}
-- Verimlilik skoru: birim saatte tamamlanan görev oranı (düşük olması fazla mesai harcandığına işaret eder)
+- Verimlilik skoru: birim saatte tamamlanan görev oranı (düşük olması fazla süre harcandığına işaret eder)
 - Deadline uyum skoru: görevlerin zamanında tamamlanma yüzdesi
 - Zorluk-başarı dengesi: zor görevlerdeki başarı ağırlıklı oran
 
@@ -177,17 +199,16 @@ GÖREV DETAYLARI:
                 "detayli_analiz": metin,
             }
 
-        # genel_durum her zaman tutarlı olsun
+        # genel_durum her zaman API tarafında belirlenir, Gemini'ye bırakılmaz
         veri["genel_durum"] = genel_durum
 
-        # Özet metni oluştur
+        # Özet metni
         maddeler = veri.get("ozet_maddeler", [])
         ozet = "\n".join(f"• {m}" for m in maddeler)
         ozet += f"\n\nGenel Durum: {genel_durum}"
 
-        # Detay metni oluştur
+        # Detay metni
         detay_parcalar = []
-
         if veri.get("guclu_yonler"):
             detay_parcalar.append(
                 "Güçlü Yönler:\n" + "\n".join(f"• {g}" for g in veri["guclu_yonler"])
@@ -205,31 +226,89 @@ GÖREV DETAYLARI:
 
         detay = "\n\n".join(detay_parcalar)
 
-        # Grafik verisi
+        # Grafik verisi 
         grafik_verisi = {
-            "radar": {
-                "kategoriler": [
-                    "Tamamlanma", "Verimlilik", "Deadline", "Zorluk/Başarı", "Mesai"
-                ],
-                "degerler": [
-                    analiz["tamamlanma_orani"],
-                    analiz["verimlilik_skoru"],
-                    analiz["deadline_uyum_skoru"],
-                    analiz["zorluk_basari_dengesi"],
-                    min(100.0, analiz["mesai_kullanim_orani"]),
-                ],
-            },
-            "gorev_dagilimi": {
-                "tamamlandi": istek.tamamlanan_gorev_sayisi,
-                "tamamlanamadi": istek.tamamlanamayan_gorev_sayisi,
-                "devam_ediyor": sum(
-                    1 for g in istek.gorevler if g.durum.value == "Devam ediyor"
-                ),
-            },
             "mesai_karsilastirma": {
                 "hedeflenen": istek.hedeflenen_mesai_saati,
                 "gerceklesen": istek.gerceklesen_mesai_saati,
             },
+            "performans_karsilastirma": {
+                "guncel": round(skor, 2),
+                "onceki": istek.onceki_performans_skoru, 
+            },
+            "metrikler": {
+                #puan skoru puan karşılaştuırması departmanlar ve en iyi 5 çalışan
+                "tamamlanma_orani": analiz["tamamlanma_orani"],
+                "verimlilik_skoru": analiz["verimlilik_skoru"],
+                "deadline_uyum_skoru": analiz["deadline_uyum_skoru"],
+                "zorluk_basari_dengesi": analiz["zorluk_basari_dengesi"],
+                "mesai_kullanim_orani": analiz["mesai_kullanim_orani"],
+                "ortalama_zorluk": analiz["ortalama_zorluk"],
+            },
         }
 
         return ozet, detay, grafik_verisi
+    
+    def DepartmanRaporuOlustur(self, istek: Departmanİstegi, calisan_skorlari: list[str, Any], departman_skoru: float, departman_analizi: dict[str, Any]) -> Tuple[str, str, dict[str, Any]]:
+        """Returns: (ozet, detay, grafik_verisi)"""
+        genel_durum=self._genel_durum_belirle(departman_skoru)
+        
+        calisan_metni = "\n".join(
+            f"- {c['ad_soyad']}: {c['skor']:.2f}/100"
+            for c in sorted(calisan_skorlari, key=lambda x: x["skor"], reverse=True)
+        )
+ 
+        deadline_str = (
+            f"%{departman_analizi['ortalama_deadline_uyumu']}"
+            if departman_analizi["ortalama_deadline_uyumu"] is not None
+            else "Veri Yok"
+        )
+        
+        prompt = f"""
+Aşağıdaki departman performans verilerini analiz ederek yöneticiye yönelik bir İK raporu oluştur.
+ 
+ÇIKTI KURALLARI:
+- Yalnızca geçerli bir JSON nesnesi döndür
+- JSON dışında hiçbir metin, açıklama, başlık veya markdown ekleme
+- Şablon ifadeler kullanma, placeholder yazma
+- Tüm metinler Türkçe olsun
+- Her madde birbirinden FARKLI bilgi içermeli, tekrar etme
+- detayli_analiz diğer alanların daha derin bir yorumu olsun
+ 
+BAĞLAM:
+- Departman skoru ağırlıklı ortalamadır: performans skoru %40, tamamlanma %25, zorluk/başarı %20, mesai %15
+- Genel Durum eşikleri: Mükemmel ≥85, İyi ≥70, Geliştirilmesi Gerekiyor ≥50, Kritik <50
+ 
+DÖNDÜRÜLECEK JSON FORMATI:
+{{
+  "ozet_maddeler": [
+    "özet madde 1 (departman skorunu ve genel durumu belirt)",
+    "özet madde 2 (en güçlü departman metriğini vurgula)",
+    "özet madde 3 (en kritik gelişim alanını belirt)"
+  ],
+  "genel_durum": "{genel_durum}",
+  "guclu_yonler": ["departman güçlü yönü 1", "departman güçlü yönü 2", "departman güçlü yönü 3"],
+  "gelisim_alanlari": ["gelişim alanı 1", "gelişim alanı 2"],
+  "somut_oneriler": ["yöneticiye somut öneri 1", "yöneticiye somut öneri 2", "yöneticiye somut öneri 3"],
+  "detayli_analiz": "200-250 kelime arası akıcı Türkçe paragraf. Departman dinamiklerini, öne çıkan çalışanları ve risk alanlarını yorumla."
+}}
+ 
+DEPARTMAN BİLGİLERİ:
+- Departman: {istek.departman_adi}
+- Toplam Çalışan: {len(istek.calisanlar)}
+- Departman Performans Skoru: {departman_skoru:.2f} / 100
+- Genel Durum: {genel_durum}
+ 
+DEPARTMAN METRİKLERİ (Ortalama):
+- Performans Skoru Ortalaması: {departman_analizi['ortalama_performans_skoru']}
+- En Yüksek Skor: {departman_analizi['en_yuksek_skor']}
+- En Düşük Skor: {departman_analizi['en_dusuk_skor']}
+- Görev Tamamlanma Oranı: %{departman_analizi['ortalama_tamamlanma_orani']}
+- Verimlilik: {departman_analizi['ortalama_verimlilik']} / 100
+- Deadline Uyumu: {deadline_str}
+- Zorluk-Başarı Dengesi: {departman_analizi['ortalama_zorluk_basari']} / 100
+- Mesai Kullanım Oranı: %{departman_analizi['ortalama_mesai_kullanimi']}
+ 
+ÇALIŞAN SKORLARI (Yüksekten Düşüğe):
+{calisan_metni}
+"""
