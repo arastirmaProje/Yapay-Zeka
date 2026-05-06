@@ -2,7 +2,7 @@ import os
 import json
 import sys
 from typing import Tuple, Dict, Any
-from app.models import Departmanİstegi
+from app.models import DepartmanIstegi
 import google.generativeai as genai
 from dotenv import load_dotenv
 from pathlib import Path
@@ -15,15 +15,15 @@ load_dotenv(dotenv_path=ROOT_DIR / ".env")
 
 try:
     from app.models import PerformansIstegi
-    from app.models import Departmanİstegi
-    from app.models import GorevAnalizİstegi
+    from app.models import DepartmanIstegi
+    from app.models import GorevAnalizIstegi
     from app.models import GorevAnalizSonucu
     from app.models import GorevDurumu
     from app.models import BeklemeTuru
 except ImportError:
     from ..models import PerformansIstegi
-    from app.models import Departmanİstegi
-    from app.models import GorevAnalizİstegi
+    from app.models import DepartmanIstegi
+    from app.models import GorevAnalizIstegi
     from app.models import GorevAnalizSonucu
     from app.models import GorevDurumu
     from app.models import BeklemeTuru
@@ -249,7 +249,7 @@ GÖREV DETAYLARI:
 
         return ozet, detay, grafik_verisi
     
-    def DepartmanRaporuOlustur(self, istek: Departmanİstegi, calisan_skorlari: list[str, Any], departman_skoru: float, departman_analizi: dict[str, Any]) -> Tuple[str, str, dict[str, Any]]:
+    def DepartmanRaporuOlustur(self, istek: DepartmanIstegi, calisan_skorlari: list[str, Any], departman_skoru: float, departman_analizi: dict[str, Any]) -> Tuple[str, str, dict[str, Any]]:
         """Returns: (ozet, detay, grafik_verisi)"""
         genel_durum=self._genel_durum_belirle(departman_skoru)
         

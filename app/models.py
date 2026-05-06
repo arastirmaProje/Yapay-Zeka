@@ -117,7 +117,7 @@ class DepartmanCalisaniIstegi(BaseModel):
         description="Çalışanın ilgili dönemdeki görevleri"
     )
 
-class Departmanİstegi(BaseModel):
+class DepartmanIstegi(BaseModel):
     '''Departman sorgusu için gereken bilgiler'''
     departman_id: UUID = Field(..., description="Departmanın benzersiz ID'si (UUID)")
     departman_adi: str = Field(..., description="Departmanın adı")
@@ -126,7 +126,7 @@ class Departmanİstegi(BaseModel):
         description="Departmandaki çalışanların listesi"
     )
     
-class CalisanPerformansSkoru(BaseModel):
+class CalisanSkorOzeti(BaseModel):
     '''Çalışan performans skorunu ve analizlerini içeren model'''
     calisan_id: UUID = Field(..., description="Çalışanın benzersiz ID'si (UUID)")
     ad_soyad: str = Field(..., description="Çalışanın adı soyadı")
@@ -136,13 +136,13 @@ class CalisanPerformansSkoru(BaseModel):
         description="Ek metrikler ve analiz sonuçları (verimlilik, deadline uyumu, zorluk dengesi vb.)"
     )
 
-class DepartmanPerformansRaporu(BaseModel):
+class DepartmanRaporu(BaseModel):
     '''Departman performans raporu modeli'''
     departman_id: UUID = Field(..., description="Departmanın benzersiz ID'si (UUID)")
     departman_adi: str = Field(..., description="Departmanın adı")
     departman_skoru: float = Field(..., ge=0, le=100, description="0-100 arası departman skoru")
     toplam_calisan: int = Field(..., description="Departmandaki toplam çalışan sayısı")
-    calisan_skorlari: List[CalisanPerformansSkoru] = Field(
+    calisan_skorlari: List[CalisanSkorOzeti] = Field(
         default_factory=list,
         description="Departmandaki her bir çalışanın performans skorları ve analiz özetleri"
     )
@@ -153,7 +153,7 @@ class DepartmanPerformansRaporu(BaseModel):
         description="Departman performansını görselleştirmek için grafik verileri (örneğin, çalışan skor dağılımı, metrik karşılaştırmaları)"
     )
 
-class GorevAnalizİstegi(BaseModel):
+class GorevAnalizIstegi(BaseModel):
     '''Görev detaylarını analiz ederek performans skoruna ekler'''
     gorev_id: UUID = Field(..., description="Görevin benzersiz ID'si (UUID)")
     gorev_adi: str = Field(..., description="Görevin başlığı / adı")
