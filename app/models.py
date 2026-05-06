@@ -17,7 +17,9 @@ class ZorlukSeviyesi(str, Enum):
 
 class GorevDurumu(str, Enum):
     TAMAMLANDI = "Tamamlandı"
-    KAPATILDI = "Kapatıldı","Tamamlanmadı","Süresi Geçti"
+    KAPATILDI = "Kapatıldı"
+    TAMAMLANMADI = "Tamamlanmadı"
+    SURESI_GECTI = "Süresi Geçti"
     BEKLEMEDE = "Beklemede"
     DEVAM_EDIYOR = "Devam ediyor"
 
@@ -157,7 +159,7 @@ class GorevAnalizİstegi(BaseModel):
     gorev_adi: str = Field(..., description="Görevin başlığı / adı")
     zorluk_seviyesi: ZorlukSeviyesi = Field(..., description="Görevin zorluk seviyesi")
     durum: GorevDurumu = Field(..., description="Görevin mevcut durumu")
-    aciklama= Optional[str] = Field(None, description="Göreve dair ek açıklama / notlar")
+    aciklama: Optional[str] = Field(None, description="Göreve dair ek açıklama / notlar")
     geri_donut: Optional[str] = Field(None, description="Yönetici veya müşteri geri bildirimi")
     baslangic_tarihi: datetime = Field(..., description="Göreve başlanılan tarih-saat")
     bitis_tarihi: Optional[datetime] = Field(None, description="Görev tamamlandıysa bitiş tarih-saat")
