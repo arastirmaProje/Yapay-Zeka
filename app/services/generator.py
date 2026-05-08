@@ -1,12 +1,11 @@
 import os
 import json
 import sys
-from typing import Tuple, Dict, Any
-from app.models import Departmanİstegi
+from typing import Tuple, Dict, Any, List
+
 import google.generativeai as genai
 from dotenv import load_dotenv
 from pathlib import Path
-from app.models import GorevDetayiModel,GorevDurumu
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -14,42 +13,25 @@ if str(ROOT_DIR) not in sys.path:
 load_dotenv(dotenv_path=ROOT_DIR / ".env")
 
 try:
-    from app.models import PerformansIstegi
-    from app.models import Departmanİstegi
-    from app.models import GorevAnalizİstegi
-    from app.models import GorevAnalizSonucu
-    from app.models import GorevDurumu
-    from app.models import BeklemeTuru
+    from app.models import PerformansIstegi, DepartmanIstegi
 except ImportError:
-    from ..models import PerformansIstegi
-    from app.models import Departmanİstegi
-    from app.models import GorevAnalizİstegi
-    from app.models import GorevAnalizSonucu
-    from app.models import GorevDurumu
-    from app.models import BeklemeTuru
+    from ..models import PerformansIstegi, DepartmanIstegi
+
 
 class PerformanceReportGenerator:
 
-    def __init__(self, model_name: str = "gemini-2.5-flash-lite") -> None:
+    def __init__(self, model_name: str = "gemini-2.5-flash") -> None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY çevre değişkeni tanımlanmadı.")
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(model_name)
-        
-    def FeedbackAnalizi(self, gorev: GorevDetayiModel,GorevDurumu) -> str:
-        '''
-        Görev açıklamalarını analiz ederek yapay zeka destekli geri bildirim üretir.'''
-        if not GorevDurumu:
-            return "Görev durumu bilgisi bulunmamaktadır."
-        if GorevDurumu == GorevDurumu.KAPATILDI:
-            return "Bu görev kapatılmış görünüyor. Lütfen görevin neden kapatıldığını ve gelecekte benzer durumları önlemek için neler yapılabileceğini yöneticinizle görüşün."
-            
 
-    def _gorev_metni_olustur(self, istek: PerformansIstegi) -> str:
+    # ── Yardımcı metodlar ─────────────────────────────────────────────────
+
+    def _gorev_metni_olustur(self, istek) -> str:
         if not istek.gorevler:
             return "Görev verisi bulunmamaktadır."
-
         satirlar = []
         for gorev in istek.gorevler[:8]:
             sure_saat = None
@@ -58,24 +40,16 @@ class PerformanceReportGenerator:
                 sure_saat = round(delta.total_seconds() / 3600, 1)
             except Exception:
                 pass
-
-            satir = (
-                f"- [{gorev.durum.value}] {gorev.gorev_adi} "
-                f"| Zorluk: {gorev.zorluk_seviyesi.value}"
-            )
+            satir = f"- [{gorev.durum.value}] {gorev.gorev_adi} | Zorluk: {gorev.zorluk_seviyesi.value}"
             if sure_saat is not None and sure_saat > 0:
-                satir += f" | Tamamlanma Süresi: {sure_saat} saat"
+                satir += f" | Süre: {sure_saat} saat"
             if gorev.geri_donut and gorev.geri_donut.strip():
-                satir += f" | Yönetici Geri Bildirimi: {gorev.geri_donut}"
+                satir += f" | Geri Bildirim: {gorev.geri_donut}"
             satirlar.append(satir)
-
         return "\n".join(satirlar)
 
     def _json_parse(self, metin: str) -> dict:
-        """Gemini çıktısını güvenli şekilde JSON'a çevirir."""
         temiz = metin.strip()
-
-        # ``` bloğu varsa içini al
         if "```" in temiz:
             parcalar = temiz.split("```")
             for parca in parcalar:
@@ -85,13 +59,10 @@ class PerformanceReportGenerator:
                 if parca.startswith("{"):
                     temiz = parca
                     break
-
-        # İlk { ile son } arasını al
         baslangic = temiz.find("{")
         bitis = temiz.rfind("}")
         if baslangic != -1 and bitis != -1:
             temiz = temiz[baslangic:bitis + 1]
-
         return json.loads(temiz)
 
     def _genel_durum_belirle(self, skor: float) -> str:
@@ -104,61 +75,58 @@ class PerformanceReportGenerator:
         else:
             return "Kritik"
 
+    def _rapor_metni_olustur(self, veri: dict, genel_durum: str) -> Tuple[str, str]:
+        maddeler = veri.get("ozet_maddeler", [])
+        ozet = "\n".join(f"• {m}" for m in maddeler)
+        ozet += f"\n\nGenel Durum: {genel_durum}"
+        detay_parcalar = []
+        if veri.get("guclu_yonler"):
+            detay_parcalar.append("Güçlü Yönler:\n" + "\n".join(f"• {g}" for g in veri["guclu_yonler"]))
+        if veri.get("gelisim_alanlari"):
+            detay_parcalar.append("Gelişim Alanları:\n" + "\n".join(f"• {g}" for g in veri["gelisim_alanlari"]))
+        if veri.get("somut_oneriler"):
+            detay_parcalar.append("Öneriler:\n" + "\n".join(f"• {o}" for o in veri["somut_oneriler"]))
+        if veri.get("detayli_analiz"):
+            detay_parcalar.append(veri["detayli_analiz"])
+        return ozet, "\n\n".join(detay_parcalar)
+
+    def _prompt_kurallari(self) -> str:
+        return """ÇIKTI KURALLARI:
+- Yalnızca geçerli bir JSON nesnesi döndür
+- JSON dışında hiçbir metin, açıklama veya markdown ekleme
+- Şablon ifadeler kullanma, placeholder yazma
+- Tüm metinler Türkçe olsun
+- Her madde birbirinden FARKLI bilgi içermeli, tekrar etme
+- detayli_analiz diğer alanların daha derin bir yorumu olsun"""
+
+    def _json_format(self, genel_durum: str) -> str:
+        return f"""DÖNDÜRÜLECEK JSON FORMATI:
+{{
+  "ozet_maddeler": ["madde 1 (skor ve genel durum)", "madde 2 (güçlü metrik)", "madde 3 (gelişim alanı)"],
+  "genel_durum": "{genel_durum}",
+  "guclu_yonler": ["güçlü yön 1", "güçlü yön 2", "güçlü yön 3"],
+  "gelisim_alanlari": ["gelişim alanı 1", "gelişim alanı 2"],
+  "somut_oneriler": ["öneri 1", "öneri 2", "öneri 3"],
+  "detayli_analiz": "200-250 kelime arası akıcı Türkçe paragraf."
+}}"""
+
+    # ── Bireysel rapor ────────────────────────────────────────────────────
+
     def rapor_olustur(
         self,
         istek: PerformansIstegi,
         skor: float,
         analiz: Dict[str, Any],
     ) -> Tuple[str, str, Dict[str, Any]]:
-        """
-        Returns: (ozet, detay, grafik_verisi)
-        """
-        gorev_metni = self._gorev_metni_olustur(istek)
         genel_durum = self._genel_durum_belirle(skor)
+        gorev_metni = self._gorev_metni_olustur(istek)
 
         prompt = f"""
-Aşağıdaki çalışan performans verilerini analiz ederek bir İK raporu oluştur.
+Aşağıdaki çalışan performans verilerini analiz ederek İK raporu oluştur.
 
-ÇIKTI KURALLARI:
-- Yalnızca geçerli bir JSON nesnesi döndür
-- JSON dışında hiçbir metin, açıklama, başlık veya markdown ekleme
-- Şablon ifadeler kullanma ([Dönem Belirtiniz] gibi placeholder yazma)
-- Tüm metinler Türkçe olsun
-- Rakamları yorumlarken aşağıdaki bağlamı dikkate al
-- Her madde veya cümle birbirinden FARKLI bilgi içermeli, aynı fikri farklı kelimelerle tekrar etme  
-- ozet_maddeler, guclu_yonler, gelisim_alanlari, somut_oneriler alanları birbirini tekrar etmemeli 
-- detayli_analiz bu alanların kısa bir özeti olmamalı, daha derin bir yorum içermeli 
+{self._prompt_kurallari()}
 
-BAĞLAM:
-- Performans skoru 0-100 arasında, {skor:.1f} puan aldı → Genel Durum: {genel_durum}
-- Verimlilik skoru: birim saatte tamamlanan görev oranı (düşük olması fazla süre harcandığına işaret eder)
-- Deadline uyum skoru: görevlerin zamanında tamamlanma yüzdesi
-- Zorluk-başarı dengesi: zor görevlerdeki başarı ağırlıklı oran
-
-DÖNDÜRÜLECEK JSON FORMATI:
-{{
-  "ozet_maddeler": [
-    "özet madde 1 (skoru ve genel durumu belirt)",
-    "özet madde 2 (en güçlü metriği vurgula)",
-    "özet madde 3 (varsa en kritik gelişim alanını belirt)"
-  ],
-  "genel_durum": "{genel_durum}",
-  "guclu_yonler": [
-    "güçlü yön 1",
-    "güçlü yön 2",
-    "güçlü yön 3"
-  ],
-  "gelisim_alanlari": [
-    "gelişim alanı 1",
-    "gelişim alanı 2"
-  ],
-  "somut_oneriler": [
-    "somut ve uygulanabilir öneri 1",
-    "somut ve uygulanabilir öneri 2",
-    "somut ve uygulanabilir öneri 3"
-  ],
-  "detayli_analiz": "200-250 kelime arası, akıcı Türkçe paragraf. Güçlü yönler, gelişim alanları ve önerileri içersin. Placeholder veya şablon ifade kullanma."
-}}
+{self._json_format(genel_durum)}
 
 ÇALIŞAN BİLGİLERİ:
 - Ad Soyad: {istek.ad_soyad}
@@ -168,7 +136,7 @@ DÖNDÜRÜLECEK JSON FORMATI:
 METRİKLER:
 - Görev Tamamlanma Oranı: %{analiz['tamamlanma_orani']}
 - Verimlilik Skoru: {analiz['verimlilik_skoru']} / 100
-- Deadline Uyum Skoru: {analiz['deadline_uyum_skoru']} / 100
+- Deadline Uyum Skoru: {analiz['deadline_uyum_skoru'] if analiz['deadline_uyum_skoru'] is not None else 'Veri Yok'}
 - Zorluk-Başarı Dengesi: {analiz['zorluk_basari_dengesi']} / 100
 - Mesai Kullanım Oranı: %{analiz['mesai_kullanim_orani']}
 - Ortalama Görev Zorluğu: {analiz['ortalama_zorluk']} / 5
@@ -179,7 +147,6 @@ METRİKLER:
 GÖREV DETAYLARI:
 {gorev_metni}
 """
-
         response = self.model.generate_content(prompt)
         metin = response.text if hasattr(response, "text") else str(response)
 
@@ -199,34 +166,9 @@ GÖREV DETAYLARI:
                 "detayli_analiz": metin,
             }
 
-        # genel_durum her zaman API tarafında belirlenir, Gemini'ye bırakılmaz
         veri["genel_durum"] = genel_durum
+        ozet, detay = self._rapor_metni_olustur(veri, genel_durum)
 
-        # Özet metni
-        maddeler = veri.get("ozet_maddeler", [])
-        ozet = "\n".join(f"• {m}" for m in maddeler)
-        ozet += f"\n\nGenel Durum: {genel_durum}"
-
-        # Detay metni
-        detay_parcalar = []
-        if veri.get("guclu_yonler"):
-            detay_parcalar.append(
-                "Güçlü Yönler:\n" + "\n".join(f"• {g}" for g in veri["guclu_yonler"])
-            )
-        if veri.get("gelisim_alanlari"):
-            detay_parcalar.append(
-                "Gelişim Alanları:\n" + "\n".join(f"• {g}" for g in veri["gelisim_alanlari"])
-            )
-        if veri.get("somut_oneriler"):
-            detay_parcalar.append(
-                "Öneriler:\n" + "\n".join(f"• {o}" for o in veri["somut_oneriler"])
-            )
-        if veri.get("detayli_analiz"):
-            detay_parcalar.append(veri["detayli_analiz"])
-
-        detay = "\n\n".join(detay_parcalar)
-
-        # Grafik verisi 
         grafik_verisi = {
             "mesai_karsilastirma": {
                 "hedeflenen": istek.hedeflenen_mesai_saati,
@@ -234,10 +176,9 @@ GÖREV DETAYLARI:
             },
             "performans_karsilastirma": {
                 "guncel": round(skor, 2),
-                "onceki": istek.onceki_performans_skoru, 
+                "onceki": istek.onceki_performans_skoru,
             },
             "metrikler": {
-                #puan skoru puan karşılaştuırması departmanlar ve en iyi 5 çalışan
                 "tamamlanma_orani": analiz["tamamlanma_orani"],
                 "verimlilik_skoru": analiz["verimlilik_skoru"],
                 "deadline_uyum_skoru": analiz["deadline_uyum_skoru"],
@@ -248,57 +189,41 @@ GÖREV DETAYLARI:
         }
 
         return ozet, detay, grafik_verisi
-    
-    def DepartmanRaporuOlustur(self, istek: Departmanİstegi, calisan_skorlari: list[str, Any], departman_skoru: float, departman_analizi: dict[str, Any]) -> Tuple[str, str, dict[str, Any]]:
-        """Returns: (ozet, detay, grafik_verisi)"""
-        genel_durum=self._genel_durum_belirle(departman_skoru)
-        
+
+    # ── Departman raporu ──────────────────────────────────────────────────
+
+    def departman_raporu_olustur(
+        self,
+        istek: DepartmanIstegi,
+        departman_skoru: float,
+        calisan_skorlari: List[Dict[str, Any]],
+        departman_analizi: Dict[str, Any],
+    ) -> Tuple[str, str, Dict[str, Any]]:
+        genel_durum = self._genel_durum_belirle(departman_skoru)
+
         calisan_metni = "\n".join(
             f"- {c['ad_soyad']}: {c['skor']:.2f}/100"
             for c in sorted(calisan_skorlari, key=lambda x: x["skor"], reverse=True)
         )
- 
         deadline_str = (
             f"%{departman_analizi['ortalama_deadline_uyumu']}"
             if departman_analizi["ortalama_deadline_uyumu"] is not None
             else "Veri Yok"
         )
-        
+
         prompt = f"""
-Aşağıdaki departman performans verilerini analiz ederek yöneticiye yönelik bir İK raporu oluştur.
- 
-ÇIKTI KURALLARI:
-- Yalnızca geçerli bir JSON nesnesi döndür
-- JSON dışında hiçbir metin, açıklama, başlık veya markdown ekleme
-- Şablon ifadeler kullanma, placeholder yazma
-- Tüm metinler Türkçe olsun
-- Her madde birbirinden FARKLI bilgi içermeli, tekrar etme
-- detayli_analiz diğer alanların daha derin bir yorumu olsun
- 
-BAĞLAM:
-- Departman skoru ağırlıklı ortalamadır: performans skoru %40, tamamlanma %25, zorluk/başarı %20, mesai %15
-- Genel Durum eşikleri: Mükemmel ≥85, İyi ≥70, Geliştirilmesi Gerekiyor ≥50, Kritik <50
- 
-DÖNDÜRÜLECEK JSON FORMATI:
-{{
-  "ozet_maddeler": [
-    "özet madde 1 (departman skorunu ve genel durumu belirt)",
-    "özet madde 2 (en güçlü departman metriğini vurgula)",
-    "özet madde 3 (en kritik gelişim alanını belirt)"
-  ],
-  "genel_durum": "{genel_durum}",
-  "guclu_yonler": ["departman güçlü yönü 1", "departman güçlü yönü 2", "departman güçlü yönü 3"],
-  "gelisim_alanlari": ["gelişim alanı 1", "gelişim alanı 2"],
-  "somut_oneriler": ["yöneticiye somut öneri 1", "yöneticiye somut öneri 2", "yöneticiye somut öneri 3"],
-  "detayli_analiz": "200-250 kelime arası akıcı Türkçe paragraf. Departman dinamiklerini, öne çıkan çalışanları ve risk alanlarını yorumla."
-}}
- 
+Aşağıdaki departman performans verilerini analiz ederek yöneticiye yönelik İK raporu oluştur.
+
+{self._prompt_kurallari()}
+
+{self._json_format(genel_durum)}
+
 DEPARTMAN BİLGİLERİ:
 - Departman: {istek.departman_adi}
 - Toplam Çalışan: {len(istek.calisanlar)}
 - Departman Performans Skoru: {departman_skoru:.2f} / 100
 - Genel Durum: {genel_durum}
- 
+
 DEPARTMAN METRİKLERİ (Ortalama):
 - Performans Skoru Ortalaması: {departman_analizi['ortalama_performans_skoru']}
 - En Yüksek Skor: {departman_analizi['en_yuksek_skor']}
@@ -308,7 +233,54 @@ DEPARTMAN METRİKLERİ (Ortalama):
 - Deadline Uyumu: {deadline_str}
 - Zorluk-Başarı Dengesi: {departman_analizi['ortalama_zorluk_basari']} / 100
 - Mesai Kullanım Oranı: %{departman_analizi['ortalama_mesai_kullanimi']}
- 
+
 ÇALIŞAN SKORLARI (Yüksekten Düşüğe):
 {calisan_metni}
 """
+        response = self.model.generate_content(prompt)
+        metin = response.text if hasattr(response, "text") else str(response)
+
+        try:
+            veri = self._json_parse(metin)
+        except (json.JSONDecodeError, ValueError):
+            veri = {
+                "ozet_maddeler": [
+                    f"Departman skoru: {departman_skoru:.2f}/100 — {genel_durum}",
+                    f"Ortalama tamamlanma: %{departman_analizi['ortalama_tamamlanma_orani']}",
+                    f"En yüksek: {departman_analizi['en_yuksek_skor']}, En düşük: {departman_analizi['en_dusuk_skor']}",
+                ],
+                "genel_durum": genel_durum,
+                "guclu_yonler": [],
+                "gelisim_alanlari": [],
+                "somut_oneriler": [],
+                "detayli_analiz": metin,
+            }
+
+        veri["genel_durum"] = genel_durum
+        ozet, detay = self._rapor_metni_olustur(veri, genel_durum)
+
+        # Grafik verisi — mobilciler ve backend için
+        grafik_verisi = {
+            # Çalışan bazlı skor karşılaştırması (bar chart)
+            "calisan_performans_karsilastirma": [
+                {"ad_soyad": c["ad_soyad"], "skor": c["skor"]}
+                for c in sorted(calisan_skorlari, key=lambda x: x["skor"], reverse=True)
+            ],
+            # Departman geneli metrik ortalamaları
+            "departman_metrikleri": {
+                "ortalama_tamamlanma_orani": departman_analizi["ortalama_tamamlanma_orani"],
+                "ortalama_verimlilik": departman_analizi["ortalama_verimlilik"],
+                "ortalama_deadline_uyumu": departman_analizi["ortalama_deadline_uyumu"],
+                "ortalama_zorluk_basari": departman_analizi["ortalama_zorluk_basari"],
+                "ortalama_mesai_kullanimi": departman_analizi["ortalama_mesai_kullanimi"],
+            },
+            # Skor özeti (min/max/ort)
+            "skor_ozeti": {
+                "departman_skoru": round(departman_skoru, 2),
+                "en_yuksek": departman_analizi["en_yuksek_skor"],
+                "en_dusuk": departman_analizi["en_dusuk_skor"],
+                "ortalama": departman_analizi["ortalama_performans_skoru"],
+            },
+        }
+
+        return ozet, detay, grafik_verisi

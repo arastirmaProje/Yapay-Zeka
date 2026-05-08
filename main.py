@@ -12,35 +12,44 @@ from app.models import (
 from app.services.calculator import PerformansHesaplayici
 from app.services.generator import PerformanceReportGenerator
 
-app = FastAPI(title="Personelim AI", version="0.1.0")
+app = FastAPI(
+    title="Personelim AI",
+    version="0.1.0",
+    description="Personelim uygulaması yapay zeka destekli performans analiz ve raporlama API'si.",
+)
 
 calculator = PerformansHesaplayici()
 report_generator = PerformanceReportGenerator()
 
 
-@app.get("/")
+@app.get("/", tags=["Genel"])
 def root():
     return {
         "status": "ok",
         "message": "Personelim AI API çalışıyor",
         "docs": "/docs",
-        "health": "/test",
         "endpoints": {
-            "calisan_raporu": "/api/performans",
-            "toplu_skor": "/api/topluskor",
-            "departman_raporu": "/api/departman/rapor",
+            "calisan_raporu": "POST /api/performans",
+            "toplu_skor": "POST /api/topluskor",
+            "departman_raporu": "POST /api/departman/rapor",
         },
     }
 
 
-@app.get("/test")
-def read_root():
-    return {"output": "API çalışıyor"}
+@app.get("/test", tags=["Genel"])
+def health_check():
+    return {"status": "ok", "message": "API çalışıyor"}
 
 
-# ── Bireysel Endpoints ────────────────────────────────────────────────────────
+# ── Bireysel Performans Endpoints ─────────────────────────────────────────────
 
-@app.post("/api/performans", response_model=PerformansRaporu, summary="Çalışan Raporu Oluştur")
+@app.post(
+    "/api/performans",
+    response_model=PerformansRaporu,
+    tags=["Çalışan"],
+    summary="Çalışan Performans Raporu Oluştur",
+
+)
 def performans_hesapla(istek: PerformansIstegi):
     try:
         skor = calculator.hesapla(istek)
@@ -57,7 +66,13 @@ def performans_hesapla(istek: PerformansIstegi):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/api/topluskor", response_model=TopluPerformansSkorlari, summary="Toplu Skor Hesapla")
+@app.post(
+    "/api/topluskor",
+    response_model=TopluPerformansSkorlari,
+    tags=["Çalışan"],
+    summary="Toplu Performans Skoru Hesapla",
+
+)
 def toplu_skor_hesapla(istekler: list[PerformansIstegi]):
     try:
         skorlar = []
@@ -80,7 +95,13 @@ def toplu_skor_hesapla(istekler: list[PerformansIstegi]):
 
 # ── Departman Endpoints ───────────────────────────────────────────────────────
 
-@app.post("/api/departman/rapor", response_model=DepartmanRaporu, summary="Departman Raporu Oluştur")
+@app.post(
+    "/api/departman/rapor",
+    response_model=DepartmanRaporu,
+    tags=["Departman"],
+    summary="Departman Performans Raporu Oluştur",
+
+)
 def departman_raporu_olustur(istek: DepartmanIstegi):
     try:
         calisan_skorlari_liste = []
