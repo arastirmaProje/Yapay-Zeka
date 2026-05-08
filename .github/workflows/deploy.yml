@@ -1,0 +1,23 @@
+name: Deploy AI API
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Personelim Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /root/ai-api
+            git pull origin main
+            docker compose -f /root/personelim/docker-compose.yml up -d --build ai-api
+            docker image prune -f
