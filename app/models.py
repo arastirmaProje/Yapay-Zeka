@@ -102,3 +102,11 @@ class DepartmanRaporu(BaseModel):
     rapor_ozeti: str
     detayli_rapor: str
     grafik_verisi: Optional[Dict[str, Any]] = None
+
+
+# ── Çoklu Departman Karşılaştırma Modelleri ──────────────────────────────────
+
+class CokluDepartmanGrafik(BaseModel):
+    """Birden fazla departmanın grafik karşılaştırma verilerini döner."""
+    toplam_departman: int = Field(..., description="Karşılaştırmaya dahil edilen departman sayısı")
+    grafik_verisi: Dict[str, Any] = Field(..., description="Tüm karşılaştırma grafik verileri")
