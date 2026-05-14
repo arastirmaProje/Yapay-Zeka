@@ -450,6 +450,44 @@ Mesai Kullanım Oranı Ortalaması: %{departman_analizi['ortalama_mesai_kullanim
                     for c in istek.calisanlar
                 ),
             },
+            # --- Yeni Eklenen Çalışan Karşılaştırma Grafikleri (Swift Charts uyumlu) ---
+            "calisan_tamamlanma_orani_karsilastirma": [
+                {
+                    "ad_soyad": istek.calisanlar[i].ad_soyad,
+                    "oran": calisan_analizleri[i].get("tamamlanma_orani", 0) if calisan_analizleri and i < len(calisan_analizleri) else 0,
+                }
+                for i in range(len(istek.calisanlar))
+            ],
+            "calisan_verimlilik_karsilastirma": [
+                {
+                    "ad_soyad": istek.calisanlar[i].ad_soyad,
+                    "verimlilik": calisan_analizleri[i].get("verimlilik_skoru", 0) if calisan_analizleri and i < len(calisan_analizleri) else 0,
+                }
+                for i in range(len(istek.calisanlar))
+            ],
+            "calisan_zorluk_basari_karsilastirma": [
+                {
+                    "ad_soyad": istek.calisanlar[i].ad_soyad,
+                    "zorluk_basari": calisan_analizleri[i].get("zorluk_basari_dengesi", 0) if calisan_analizleri and i < len(calisan_analizleri) else 0,
+                }
+                for i in range(len(istek.calisanlar))
+            ],
+            "calisan_deadline_uyumu_karsilastirma": [
+                {
+                    "ad_soyad": istek.calisanlar[i].ad_soyad,
+                    "deadline_uyumu": calisan_analizleri[i].get("deadline_uyum_skoru", 0) if calisan_analizleri and i < len(calisan_analizleri) and calisan_analizleri[i].get("deadline_uyum_skoru") is not None else 0,
+                }
+                for i in range(len(istek.calisanlar))
+            ],
+            "calisan_gorev_dagilimi_karsilastirma": [
+                {
+                    "ad_soyad": c.ad_soyad,
+                    "tamamlanan": c.tamamlanan_gorev_sayisi,
+                    "tamamlanamayan": c.tamamlanamayan_gorev_sayisi,
+                    "toplam": c.tamamlanan_gorev_sayisi + c.tamamlanamayan_gorev_sayisi,
+                }
+                for c in istek.calisanlar
+            ],
         }
 
         return ozet, detay, grafik_verisi
