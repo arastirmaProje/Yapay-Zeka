@@ -11,6 +11,7 @@ from app.models import (
     DepartmanRaporu,
     CalisanSkorOzeti,
     CokluDepartmanGrafik,
+    CalisanGrafikRaporu,
 )
 from app.services.calculator import PerformansHesaplayici
 from app.services.generator import PerformanceReportGenerator
@@ -68,6 +69,50 @@ def performans_hesapla(istek: PerformansIstegi):
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post(
+    "/api/performans/grafikler",
+    response_model=CalisanGrafikRaporu,
+    tags=["Çalışan"],
+    summary="Çalışan Grafik Verilerini Getir",
+)
+def performans_grafikleri(istek: PerformansIstegi):
+    """
+    Çalışanın performans metriklerini yapay zeka raporu üretmeden sadece grafik verisi olarak hızlıca döner.
+    Mobil tarafta bireysel çalışan grafikleri çizmek için idealdir.
+    """
+    try:
+        skor = calculator.hesapla(istek)
+        analiz = calculator.analiz_ozeti_getir(istek)
+        
+        grafik_verisi = {
+            "mesai_karsilastirma": {
+                "hedeflenen": istek.hedeflenen_mesai_saati,
+                "gerceklesen": istek.gerceklesen_mesai_saati,
+            },
+            "performans_karsilastirma": {
+                "guncel": round(skor, 2),
+                "onceki": istek.onceki_performans_skoru,
+            },
+            "metrikler": {
+                "tamamlanma_orani": analiz["tamamlanma_orani"],
+                "verimlilik_skoru": analiz["verimlilik_skoru"],
+                "deadline_uyum_skoru": analiz["deadline_uyum_skoru"],
+                "zorluk_basari_dengesi": analiz["zorluk_basari_dengesi"],
+                "mesai_kullanim_orani": analiz["mesai_kullanim_orani"],
+                "ortalama_zorluk": analiz["ortalama_zorluk"],
+            },
+        }
+        
+        return CalisanGrafikRaporu(
+            calisan_id=istek.calisan_id,
+            performans_skoru=skor,
+            grafik_verisi=grafik_verisi,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
 
 
 @app.post(

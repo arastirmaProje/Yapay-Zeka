@@ -55,6 +55,13 @@ class PerformansRaporu(BaseModel):
     onceki_raporlar: Optional[List[str]] = None
 
 
+class CalisanGrafikRaporu(BaseModel):
+    calisan_id: UUID
+    performans_skoru: float = Field(..., ge=0, le=100)
+    grafik_verisi: Dict[str, Any]
+
+
+
 class TopluPerformansSkoru(BaseModel):
     calisan_id: UUID
     ad_soyad: str
