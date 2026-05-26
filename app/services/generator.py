@@ -5,6 +5,7 @@ import sys
 from typing import Tuple, Dict, Any, List
 
 import google.generativeai as genai
+from google.generativeai import types
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -26,7 +27,22 @@ class PerformanceReportGenerator:
         if not api_key:
             raise ValueError("GEMINI_API_KEY çevre değişkeni tanımlanmadı.")
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(model_name)
+
+        # ── MALİYET KONTROLÜ ──────────────────────────────────────────────
+        # 1. response_mime_type="application/json" → Görsel üretimi ENGELLER,
+        #    sadece JSON metin döner. Pro/Imagen modeline yönlendirmeyi önler.
+        # 2. max_output_tokens → Yanıt boyutunu sınırlar
+        # 3. Model: gemini-2.5-flash → En uygun fiyat/kalite dengesi
+        self.generation_config = types.GenerationConfig(
+            response_mime_type="application/json",
+            max_output_tokens=2048,
+            temperature=0.7,
+        )
+
+        self.model = genai.GenerativeModel(
+            model_name=model_name,
+            generation_config=self.generation_config,
+        )
 
     # ── Metin Temizleme ───────────────────────────────────────────────────
 
@@ -269,7 +285,10 @@ Gerçekleşen Aylık Mesai: {istek.gerceklesen_mesai_saati} saat
 
 ÖNEMLİ HATIRLATMA: Yanıtında kesinlikle markdown (*, **, #, `, ~~) ve HTML (<b>, <br> vb.) kullanma. Yalnızca düz Türkçe metin içeren geçerli JSON döndür."""
 
-        response = self.model.generate_content(prompt)
+        response = self.model.generate_content(
+            prompt,
+            generation_config=self.generation_config,
+        )
         metin = response.text if hasattr(response, "text") else str(response)
 
         try:
@@ -370,7 +389,10 @@ Mesai Kullanım Oranı Ortalaması: %{departman_analizi['ortalama_mesai_kullanim
 
 ÖNEMLİ HATIRLATMA: Yanıtında kesinlikle markdown (*, **, #, `, ~~) ve HTML (<b>, <br> vb.) kullanma. Yalnızca düz Türkçe metin içeren geçerli JSON döndür."""
 
-        response = self.model.generate_content(prompt)
+        response = self.model.generate_content(
+            prompt,
+            generation_config=self.generation_config,
+        )
         metin = response.text if hasattr(response, "text") else str(response)
 
         try:
