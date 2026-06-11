@@ -145,10 +145,7 @@ class ChatbotService:
         history = []
         for mesaj in gecmis:
             history.append(
-                types.Content(
-                    role=mesaj.rol,
-                    parts=[types.Part.from_text(text=mesaj.icerik)],
-                )
+                {"role": mesaj.rol, "parts": [mesaj.icerik]}
             )
         return history
 
@@ -241,12 +238,14 @@ class ChatbotService:
             tool_verisi = tool_sonucu
 
             # Tool sonucunu Gemini'ye geri gönder
-            tool_response = types.Content(
+            tool_response = genai.protos.Content(
                 role="function",
                 parts=[
-                    types.Part.from_function_response(
-                        name=tool_adi,
-                        response=tool_sonucu,
+                    genai.protos.Part(
+                        function_response=genai.protos.FunctionResponse(
+                            name=tool_adi,
+                            response=tool_sonucu,
+                        )
                     )
                 ],
             )
