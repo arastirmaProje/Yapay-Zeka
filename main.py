@@ -13,8 +13,14 @@ from app.models import (
     CokluDepartmanGrafik,
     CalisanGrafikRaporu,
 )
+from app.chatbot_models import (
+    PersonelChatIstegi,
+    YoneticiChatIstegi,
+    ChatYaniti,
+)
 from app.services.calculator import PerformansHesaplayici
 from app.services.generator import PerformanceReportGenerator
+from app.services.chatbot_service import ChatbotService
 
 app = FastAPI(
     title="Personelim AI",
@@ -24,6 +30,7 @@ app = FastAPI(
 
 calculator = PerformansHesaplayici()
 report_generator = PerformanceReportGenerator()
+chatbot_service = ChatbotService()
 
 
 @app.get("/", tags=["Genel"])
@@ -37,6 +44,8 @@ def root():
             "toplu_skor": "POST /api/topluskor",
             "departman_raporu": "POST /api/departman/rapor",
             "departman_grafikleri": "POST /api/departman/grafikler",
+            "chatbot_personel": "POST /api/chat/personel",
+            "chatbot_yonetici": "POST /api/chat/yonetici",
         },
     }
 
@@ -387,5 +396,43 @@ def departman_grafikleri(istekler: list[DepartmanIstegi]):
         )
     except HTTPException:
         raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Chatbot Endpoints ─────────────────────────────────────────────────────────
+
+@app.post(
+    "/api/chat/personel",
+    response_model=ChatYaniti,
+    tags=["Chatbot"],
+    summary="Personel Chatbot",
+)
+async def personel_chat(istek: PersonelChatIstegi):
+    """
+    Personel chatbotu — çalışan kendi verileriyle etkileşir.
+    Performans sorgulama, görev listeleme, izin talebi gibi işlemleri
+    doğal dil ile yapmasını sağlar.
+    """
+    try:
+        return await chatbot_service.personel_chat(istek)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post(
+    "/api/chat/yonetici",
+    response_model=ChatYaniti,
+    tags=["Chatbot"],
+    summary="Yönetici Chatbot",
+)
+async def yonetici_chat(istek: YoneticiChatIstegi):
+    """
+    Yönetici chatbotu — departman yönetimi ve ekip analizi.
+    Departman performansı, çalışan karşılaştırma, görev atama gibi
+    işlemleri doğal dil ile yapmasını sağlar.
+    """
+    try:
+        return await chatbot_service.yonetici_chat(istek)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
