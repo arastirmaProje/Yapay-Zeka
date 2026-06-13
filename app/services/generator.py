@@ -35,7 +35,7 @@ class PerformanceReportGenerator:
         # 3. Model: gemini-2.5-flash → En uygun fiyat/kalite dengesi
         self.generation_config = types.GenerationConfig(
             response_mime_type="application/json",
-            max_output_tokens=4096,
+            max_output_tokens=8192,
             temperature=0.7,
         )
 
@@ -217,7 +217,8 @@ class PerformanceReportGenerator:
   "ozet_maddeler": [
     "Performans skorunu ve genel durumu özetleyen tek cümle",
     "En güçlü metriği vurgulayan tek cümle",
-    "Gelişim gerektiren alanı belirten tek cümle"
+    "Gelişim gerektiren alanı belirten tek cümle",
+    "Mesai ve verimlilik dengesini özetleyen tek cümle"
   ],
   "genel_durum": "{genel_durum}",
   "guclu_yonler": [
@@ -226,15 +227,17 @@ class PerformanceReportGenerator:
     "Verilerden çıkan üçüncü güçlü yön (somut metrik referansıyla)"
   ],
   "gelisim_alanlari": [
-    "Birinci gelişim alanı (hangi metriğin neden düşük olduğunu açıkla)",
-    "İkinci gelişim alanı (hangi metriğin neden düşük olduğunu açıkla)"
+    "Birinci gelişim alanı (hangi metriğin neden düşük olduğunu detaylı açıkla)",
+    "İkinci gelişim alanı (hangi metriğin neden düşük olduğunu detaylı açıkla)",
+    "Üçüncü gelişim alanı (hangi metriğin neden düşük olduğunu detaylı açıkla)"
   ],
   "somut_oneriler": [
     "Uygulanabilir birinci öneri (zaman çerçevesi ve beklenen etki belirt)",
     "Uygulanabilir ikinci öneri (zaman çerçevesi ve beklenen etki belirt)",
-    "Uygulanabilir üçüncü öneri (zaman çerçevesi ve beklenen etki belirt)"
+    "Uygulanabilir üçüncü öneri (zaman çerçevesi ve beklenen etki belirt)",
+    "Uygulanabilir dördüncü öneri (uzun vadeli kariyer gelişimi için)"
   ],
-  "detayli_analiz": "200-250 kelime arası akıcı Türkçe paragraf. Çalışanın genel performans tablosunu değerlendir. Güçlü ve zayıf yönleri bağlamsal olarak yorumla. Metriklerin birbirleriyle ilişkisini analiz et. Kısa ve uzun vadeli gelişim önerileri sun. Profesyonel İK dili kullan, düz metin yaz, biçimlendirme işareti kullanma."
+  "detayli_analiz": "300-400 kelime arası akıcı ve kapsamlı Türkçe paragraf. Çalışanın genel performans tablosunu detaylı olarak değerlendir. Güçlü ve zayıf yönleri bağlamsal olarak yorumla. Metriklerin birbirleriyle ilişkisini ve nedenselliğini analiz et. Görev bazlı performans eğilimlerini yorumla. Kısa vadeli (1-2 hafta), orta vadeli (1-3 ay) ve uzun vadeli (3-6 ay) gelişim önerileri sun. Çalışanın potansiyelini ve kariyer gelişim yolunu değerlendir. Profesyonel İK dili kullan, düz metin yaz, biçimlendirme işareti kullanma."
 }}"""
 
     def _json_format_departman(self, genel_durum: str) -> str:
@@ -243,7 +246,8 @@ class PerformanceReportGenerator:
   "ozet_maddeler": [
     "Departman skorunu ve genel durumu özetleyen tek cümle",
     "Departmanın en güçlü metriğini vurgulayan tek cümle",
-    "Departmanın gelişim gerektiren alanını belirten tek cümle"
+    "Departmanın gelişim gerektiren alanını belirten tek cümle",
+    "Ekip içi performans dağılımını özetleyen tek cümle"
   ],
   "genel_durum": "{genel_durum}",
   "guclu_yonler": [
@@ -252,15 +256,17 @@ class PerformanceReportGenerator:
     "Departmanın verilerden çıkan üçüncü güçlü yönü (somut metrik referansıyla)"
   ],
   "gelisim_alanlari": [
-    "Departmanın birinci gelişim alanı (hangi metriğin neden düşük olduğunu açıkla)",
-    "Departmanın ikinci gelişim alanı (hangi metriğin neden düşük olduğunu açıkla)"
+    "Departmanın birinci gelişim alanı (hangi metriğin neden düşük olduğunu detaylı açıkla)",
+    "Departmanın ikinci gelişim alanı (hangi metriğin neden düşük olduğunu detaylı açıkla)",
+    "Departmanın üçüncü gelişim alanı (ekip dinamikleri açısından değerlendir)"
   ],
   "somut_oneriler": [
-    "Yöneticiye yönelik uygulanabilir birinci öneri (ekip geneli)",
-    "Yöneticiye yönelik uygulanabilir ikinci öneri (bireysel gelişim)",
-    "Yöneticiye yönelik uygulanabilir üçüncü öneri (süreç iyileştirme)"
+    "Yöneticiye yönelik uygulanabilir birinci öneri (ekip geneli, zaman çerçevesiyle)",
+    "Yöneticiye yönelik uygulanabilir ikinci öneri (bireysel gelişim planı)",
+    "Yöneticiye yönelik uygulanabilir üçüncü öneri (süreç iyileştirme)",
+    "Yöneticiye yönelik uygulanabilir dördüncü öneri (uzun vadeli strateji)"
   ],
-  "detayli_analiz": "250-300 kelime arası akıcı Türkçe paragraf. Departmanın genel performans tablosunu yönetici perspektifinden değerlendir. Çalışanlar arası performans dağılımını, ekip dinamiklerini ve metrik ortalamalarını bağlamsal olarak yorumla. Yöneticiye stratejik aksiyon önerileri sun. Profesyonel İK dili kullan, düz metin yaz, biçimlendirme işareti kullanma."
+  "detayli_analiz": "350-450 kelime arası akıcı ve kapsamlı Türkçe paragraf. Departmanın genel performans tablosunu yönetici perspektifinden detaylı olarak değerlendir. Çalışanlar arası performans dağılımını, en yüksek ve en düşük performans gösteren çalışanları karşılaştır. Ekip dinamiklerini, metrik ortalamalarını ve trendleri bağlamsal olarak yorumla. Görev dağılımı ve iş yükü dengesini analiz et. Mesai kullanım verimliliğini değerlendir. Kısa vadeli (1-2 hafta), orta vadeli (1-3 ay) ve uzun vadeli (3-6 ay) stratejik aksiyon önerileri sun. Departmanın güçlü yönlerini koruma ve zayıf yönlerini geliştirme planı öner. Profesyonel İK dili kullan, düz metin yaz, biçimlendirme işareti kullanma."
 }}"""
 
     # ── Bireysel rapor ────────────────────────────────────────────────────
