@@ -35,7 +35,7 @@ class PerformanceReportGenerator:
         # 3. Model: gemini-2.5-flash → En uygun fiyat/kalite dengesi
         self.generation_config = types.GenerationConfig(
             response_mime_type="application/json",
-            max_output_tokens=2048,
+            max_output_tokens=4096,
             temperature=0.7,
         )
 
@@ -143,6 +143,34 @@ class PerformanceReportGenerator:
         if baslangic != -1 and bitis != -1:
             temiz = temiz[baslangic:bitis + 1]
         return json.loads(temiz)
+
+    def _partial_json_extract(self, metin: str) -> str:
+        """
+        Yarım/bozuk JSON'dan okunabilir metin çıkarır.
+        Parse edilemeyen Gemini çıktısını kullanıcıya ham JSON olarak
+        göstermek yerine anlamlı düz metne dönüştürür.
+        """
+        if not metin:
+            return ""
+        # JSON string değerlerini çıkar ("..." içindeki metinler)
+        parcalar = re.findall(r'"([^"]{15,})"', metin)
+        if parcalar:
+            # JSON anahtarlarını filtrele, sadece anlamlı metinleri al
+            json_anahtarlar = {
+                "ozet_maddeler", "genel_durum", "guclu_yonler",
+                "gelisim_alanlari", "somut_oneriler", "detayli_analiz",
+            }
+            anlamli = [
+                p for p in parcalar
+                if p.strip() not in json_anahtarlar and not p.strip().startswith("{")
+            ]
+            if anlamli:
+                return self._temizle("\n".join(f"• {m}" for m in anlamli))
+        # Hiçbir şey çıkaramazsa JSON kalıntılarını temizle
+        temiz = re.sub(r'[{}\[\]",:]+', ' ', metin)
+        temiz = re.sub(r'\b(ozet_maddeler|guclu_yonler|gelisim_alanlari|somut_oneriler|detayli_analiz|genel_durum)\b', '', temiz)
+        temiz = re.sub(r'\s{2,}', ' ', temiz).strip()
+        return self._temizle(temiz) if temiz else "Detaylı rapor oluşturulamadı."
 
     def _genel_durum_belirle(self, skor: float) -> str:
         if skor >= 85:
@@ -305,7 +333,7 @@ Gerçekleşen Aylık Mesai: {istek.gerceklesen_mesai_saati} saat
                 "guclu_yonler": [],
                 "gelisim_alanlari": [],
                 "somut_oneriler": [],
-                "detayli_analiz": self._temizle(metin),
+                "detayli_analiz": self._partial_json_extract(metin),
             }
 
         veri["genel_durum"] = genel_durum
@@ -409,7 +437,7 @@ Mesai Kullanım Oranı Ortalaması: %{departman_analizi['ortalama_mesai_kullanim
                 "guclu_yonler": [],
                 "gelisim_alanlari": [],
                 "somut_oneriler": [],
-                "detayli_analiz": self._temizle(metin),
+                "detayli_analiz": self._partial_json_extract(metin),
             }
 
         veri["genel_durum"] = genel_durum
