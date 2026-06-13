@@ -49,12 +49,42 @@ class PerformansHesaplayici:
             return max(-10.0, -((min(yuzde_oran, 200.0) - 150.0) / 50.0) * 10.0)
         return 0.0
 
+    def _gorev_sayilari_dogrula(self, istek) -> tuple:
+        """
+        gorevler listesindeki durum bilgilerini kontrol ederek
+        tamamlanan/tamamlanamayan sayılarını doğrular.
+        Backend'den 0 gelse bile gorevler listesinde tamamlanmış görev
+        varsa gerçek sayıları kullanır.
+        """
+        tamamlanan = istek.tamamlanan_gorev_sayisi
+        tamamlanamayan = istek.tamamlanamayan_gorev_sayisi
+
+        if not istek.gorevler:
+            return tamamlanan, tamamlanamayan
+
+        gorevden_tamamlanan = sum(
+            1 for g in istek.gorevler if g.durum.value == "Tamamlandı"
+        )
+        gorevden_tamamlanamayan = sum(
+            1 for g in istek.gorevler
+            if g.durum.value in ("Süresi Geçti", "Kapatıldı")
+        )
+
+        # Sayılar tutarsızsa gorevler listesindeki gerçek verileri kullan
+        if tamamlanan == 0 and gorevden_tamamlanan > 0:
+            tamamlanan = gorevden_tamamlanan
+        if tamamlanamayan == 0 and gorevden_tamamlanamayan > 0:
+            tamamlanamayan = gorevden_tamamlanamayan
+
+        return tamamlanan, tamamlanamayan
+
     # ── Bireysel metrikler ────────────────────────────────────────────────
 
     def verimlilik_skoru_hesapla(self, istek) -> float:
+        tamamlanan, _ = self._gorev_sayilari_dogrula(istek)
         if istek.gerceklesen_mesai_saati <= 0:
             return 0.0
-        gph = istek.tamamlanan_gorev_sayisi / istek.gerceklesen_mesai_saati
+        gph = tamamlanan / istek.gerceklesen_mesai_saati
         return min(100.0, (gph / 0.5) * 100)
 
     def deadline_uyum_skoru_hesapla(self, istek) -> Optional[float]:
@@ -81,8 +111,7 @@ class PerformansHesaplayici:
         return round((kazanilan_agirlik / toplam_agirlik) * 100, 1)
 
     def analiz_ozeti_getir(self, istek) -> Dict[str, Any]:
-        tamamlanan = istek.tamamlanan_gorev_sayisi
-        tamamlanamayan = istek.tamamlanamayan_gorev_sayisi
+        tamamlanan, tamamlanamayan = self._gorev_sayilari_dogrula(istek)
         toplam = max(tamamlanan + tamamlanamayan, 1)
         return {
             "tamamlanma_orani": round((tamamlanan / toplam) * 100, 1),
@@ -99,8 +128,9 @@ class PerformansHesaplayici:
     def _hazirla_feature_vektor(self, istek) -> Dict[str, Any]:
         hedeflenen = float(istek.hedeflenen_mesai_saati)
         gerceklesen = float(istek.gerceklesen_mesai_saati)
-        tamamlanan = int(istek.tamamlanan_gorev_sayisi)
-        tamamlanamayan = int(istek.tamamlanamayan_gorev_sayisi)
+        tamamlanan_raw, tamamlanamayan_raw = self._gorev_sayilari_dogrula(istek)
+        tamamlanan = int(tamamlanan_raw)
+        tamamlanamayan = int(tamamlanamayan_raw)
         toplam_gorev = max(tamamlanan + tamamlanamayan, 1)
         return {
             "hedeflenen_gunluk_mesai_saati": hedeflenen / 5,
