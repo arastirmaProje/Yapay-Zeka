@@ -33,6 +33,11 @@ try:
         ChatMesaj,
     )
     from app.services.chatbot_tools import PERSONEL_TOOLS, YONETICI_TOOLS
+    from app.services.entity_resolver import (
+        resolve as resolve_entities,
+        MemberDTO,
+        DepartmentDTO,
+    )
 except ImportError:
     from ..chatbot_models import (
         PersonelChatIstegi,
@@ -41,6 +46,11 @@ except ImportError:
         ChatMesaj,
     )
     from .chatbot_tools import PERSONEL_TOOLS, YONETICI_TOOLS
+    from .entity_resolver import (
+        resolve as resolve_entities,
+        MemberDTO,
+        DepartmentDTO,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -81,7 +91,10 @@ KURALLAR:
 - Yanıtlarını kısa ve öz tut, mobil ekranda rahat okunacak şekilde yaz.
 - Markdown biçimlendirme kullanma (yıldız, diyez, backtick vs.). Düz metin yaz.
 - Eğer sana verilen tool'larla cevaplayamayacağın bir soru gelirse, kibarca bunu belirt.
-- Kullanıcının ID'si ve departman ID'si her istekte sana verilecek, tool çağrılarında bunları kullan."""
+- Kullanıcının ID'si ve departman ID'si her istekte sana verilecek, tool çağrılarında bunları kullan.
+- Mesajda bir çalışan adı veya departman adı geçtiğinde, sistem otomatik olarak eşleşen ID'yi bulur ve sana context olarak verir. Bu ID'leri tool çağrılarında doğrudan kullan, kullanıcıdan tekrar ID sorma.
+- Eğer otomatik eşleşme sonucu context'te bir calisan_id veya departman_id verilmişse, onu doğrudan tool parametresi olarak kullan.
+- Eğer otomatik eşleşme bulunamazsa ve tool çağrısı için ID gerekiyorsa, o zaman kullanıcıya nazikçe sor."""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -300,6 +313,44 @@ class ChatbotService:
             f"[Sistem bilgisi — kullanıcıya gösterme] "
             f"Konuşan yöneticinin ID'si: {istek.kullanici_id}{dept_bilgi}"
         )
+
+        # ── Entity Resolution: isimden otomatik ID eşleştirme ─────────
+        if istek.members or istek.departments:
+            members_dto = [
+                MemberDTO(user_id=m.user_id, full_name=m.full_name)
+                for m in istek.members
+            ]
+            departments_dto = [
+                DepartmentDTO(id=d.id, name=d.name)
+                for d in istek.departments
+            ]
+
+            resolved = resolve_entities(
+                message=istek.mesaj,
+                members=members_dto,
+                departments=departments_dto,
+            )
+
+            resolve_parts = []
+            if resolved.employee_user_id:
+                resolve_parts.append(
+                    f"Mesajda tespit edilen calisan: {resolved.matched_employee_name} "
+                    f"(calisan_id: {resolved.employee_user_id})"
+                )
+            if resolved.department_id:
+                resolve_parts.append(
+                    f"Mesajda tespit edilen departman: {resolved.matched_department_name} "
+                    f"(departman_id: {resolved.department_id})"
+                )
+
+            if resolve_parts:
+                ek_context += (
+                    "\n\n[Otomatik esleme sonucu]\n"
+                    + "\n".join(resolve_parts)
+                    + "\nBu ID'leri tool cagirislarinda dogrudan kullan, "
+                    "kullanicidan tekrar ID sorma."
+                )
+
         return await self._chat_isle(
             model=self.yonetici_model,
             mesaj=istek.mesaj,

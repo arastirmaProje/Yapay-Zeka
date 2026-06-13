@@ -28,6 +28,20 @@ class PersonelChatIstegi(BaseModel):
 # ── Yönetici Chat ────────────────────────────────────────────────────────────
 
 
+class MemberInfo(BaseModel):
+    """Mobil taraftan gelen çalışan bilgisi (isim→ID eşleştirmesi için)."""
+
+    user_id: str = Field(..., description="Çalışanın benzersiz ID'si")
+    full_name: str = Field(..., description="Çalışanın tam adı soyadı")
+
+
+class DepartmentInfo(BaseModel):
+    """Mobil taraftan gelen departman bilgisi (isim→ID eşleştirmesi için)."""
+
+    id: str = Field(..., description="Departmanın benzersiz ID'si")
+    name: str = Field(..., description="Departmanın adı")
+
+
 class YoneticiChatIstegi(BaseModel):
     """Yönetici chatbot isteği. Departman yönetimi ve ekip analizi."""
 
@@ -39,6 +53,14 @@ class YoneticiChatIstegi(BaseModel):
     gecmis: List[ChatMesaj] = Field(
         default_factory=list,
         description="Önceki konuşma geçmişi (backend tarafından gönderilir)",
+    )
+    members: List[MemberInfo] = Field(
+        default_factory=list,
+        description="İşletmedeki çalışan listesi (isim→ID eşleştirmesi için)",
+    )
+    departments: List[DepartmentInfo] = Field(
+        default_factory=list,
+        description="İşletmedeki departman listesi (isim→ID eşleştirmesi için)",
     )
 
 
