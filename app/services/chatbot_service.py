@@ -38,6 +38,8 @@ try:
         MemberDTO,
         DepartmentDTO,
     )
+    from app.services import backend_client
+
 except ImportError:
     from ..chatbot_models import (
         PersonelChatIstegi,
@@ -51,6 +53,7 @@ except ImportError:
         MemberDTO,
         DepartmentDTO,
     )
+    from . import backend_client
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -72,7 +75,11 @@ KURALLAR:
 - Yanıtlarını kısa ve öz tut, mobil ekranda rahat okunacak şekilde yaz.
 - Markdown biçimlendirme kullanma (yıldız, diyez, backtick vs.). Düz metin yaz.
 - Eğer sana verilen tool'larla cevaplayamayacağın bir soru gelirse, kibarca bunu belirt.
-- Kullanıcının ID'si her istekte sana verilecek, tool çağrılarında bu ID'yi kullan."""
+- KÜFÜR VE HAKARET YASAKTIR: Kullanıcı küfür, argo, hakaret veya saldırgan bir dil kullanırsa, KESİNLİKLE araç (tool) çağırma ve işlemi reddet. Profesyonel ve resmi bir dille bu tarz ifadelere izin verilmediğini belirterek soruyu yanıtsız bırak.
+- ŞİRKET DIŞI KONULAR YASAKTIR: Sen bir iş asistanısın. Hava durumu, genel geyik muhabbeti, tarih, siyaset gibi saçma veya iş dışı sorulara yanıt verme. "Ben bir şirket asistanıyım, sadece iş süreçleri hakkında yardımcı olabilirim" diyerek kibarca reddet.
+- KİŞİSELLEŞTİRME VE GİZLİLİK: Kullanıcıya asla ID (UUID vb.) detaylarından bahsetme. "ID'mi biliyor musun?" diyenlere "Sisteme giriş yaptığınız için sizi tanıyorum" şeklinde yanıt ver. "Benim görevlerim neler" dediğinde sana arka planda verilen ID'yi gizlice kullanarak ilgili araçları (tool) çalıştır.
+- GENEL ŞİRKET VERİSİ YASAKTIR: Eğer şirkette kaç kişi var, kaç departman var veya başkasının performansı nasıl gibi sorular gelirse: "Bu tarz genel şirket verilerine sadece yöneticiler erişebilir, ben size sadece kendi verileriniz hakkında yardımcı olabilirim" diyerek reddet.
+- Kullanıcının ID'si ve adı her istekte sana arka planda verilecek, tool çağrılarında sadece bu ID'yi kullan ve kullanıcıyla adı üzerinden iletişim kur."""
 
 YONETICI_SYSTEM_PROMPT = """Sen "Personelim" uygulamasının yönetici yapay zeka asistanısın.
 Bir departman yöneticisine yardımcı oluyorsun. Görevin:
@@ -91,7 +98,11 @@ KURALLAR:
 - Yanıtlarını kısa ve öz tut, mobil ekranda rahat okunacak şekilde yaz.
 - Markdown biçimlendirme kullanma (yıldız, diyez, backtick vs.). Düz metin yaz.
 - Eğer sana verilen tool'larla cevaplayamayacağın bir soru gelirse, kibarca bunu belirt.
-- Kullanıcının ID'si ve departman ID'si her istekte sana verilecek, tool çağrılarında bunları kullan.
+- KÜFÜR VE HAKARET YASAKTIR: Kullanıcı küfür, argo, hakaret veya saldırgan bir dil kullanırsa, KESİNLİKLE araç (tool) çağırma ve işlemi reddet. Profesyonel ve resmi bir dille bu tarz ifadelere izin verilmediğini belirterek soruyu yanıtsız bırak.
+- ŞİRKET DIŞI KONULAR YASAKTIR: Sen bir iş asistanısın. Hava durumu, genel geyik muhabbeti, tarih, siyaset gibi saçma veya iş dışı sorulara yanıt verme. "Ben bir şirket asistanıyım, sadece iş süreçleri hakkında yardımcı olabilirim" diyerek kibarca reddet.
+- KİŞİSELLEŞTİRME VE GİZLİLİK: Kullanıcıya asla ID (UUID vb.) detaylarından bahsetme. "ID'mi biliyor musun?" diyenlere "Sisteme giriş yaptığınız için sizi tanıyorum" şeklinde yanıt ver. Sana arka planda verilen kendi yöneticilik yetkilerindeki departman/çalışan listesini kullanarak doğal iletişim kur.
+- ŞİRKET İSTATİSTİKLERİ: Sana arka planda şirketteki departman ve çalışan sayıları verilecek, istendiğinde bunları paylaşabilirsin.
+- Kullanıcının ID'si, adı ve departman ID'si her istekte sana verilecek, tool çağrılarında bunları kullan.
 - Mesajda bir çalışan adı veya departman adı geçtiğinde, sistem otomatik olarak eşleşen ID'yi bulur ve sana context olarak verir. Bu ID'leri tool çağrılarında doğrudan kullan, kullanıcıdan tekrar ID sorma.
 - Eğer otomatik eşleşme sonucu context'te bir calisan_id veya departman_id verilmişse, onu doğrudan tool parametresi olarak kullan.
 - Eğer otomatik eşleşme bulunamazsa ve tool çağrısı için ID gerekiyorsa, o zaman kullanıcıya nazikçe sor."""
@@ -309,10 +320,20 @@ class ChatbotService:
 
     async def personel_chat(self, istek: PersonelChatIstegi) -> ChatYaniti:
         """Personel chatbot'u — çalışan kendi verileriyle etkileşir."""
+        # 1. API'den kullanıcının adını/soyadını alalım (Kişiselleştirme)
+        profil_verisi = await backend_client.profil_getir(istek.token)
+        ad = profil_verisi.get("data", {}).get("firstName", "") if "data" in profil_verisi else profil_verisi.get("firstName", "")
+        soyad = profil_verisi.get("data", {}).get("lastName", "") if "data" in profil_verisi else profil_verisi.get("lastName", "")
+        ad_soyad = f"{ad} {soyad}".strip() or "Değerli Çalışanımız"
+
         ek_context = (
-            f"[Sistem bilgisi — kullanıcıya gösterme] "
-            f"Konuşan çalışanın ID'si: {istek.kullanici_id}"
+            f"[Sistem bilgisi — kullanıcıya GİZLİ olarak verilen veri]\n"
+            f"Senin konuştuğun kişinin adı: {ad_soyad}.\n"
+            f"Kullanıcının sistem ID'si: {istek.kullanici_id}\n"
+            f"Eğer kullanıcı 'görevlerim', 'performansım' gibi KENDİ verilerini sorarsa "
+            f"bu ID'yi kullanarak araçlarını (tool) çalıştır. Ancak kullanıcıya asla bu ID bilgisini gösterme, sadece 'isminizi biliyorum' de."
         )
+
         return await self._chat_isle(
             model=self.personel_model,
             mesaj=istek.mesaj,
@@ -326,14 +347,25 @@ class ChatbotService:
 
     async def yonetici_chat(self, istek: YoneticiChatIstegi) -> ChatYaniti:
         """Yönetici chatbot'u — departman yönetimi ve ekip analizi."""
+        # 1. API'den yöneticinin adını/soyadını alalım
+        profil_verisi = await backend_client.profil_getir(istek.token)
+        ad = profil_verisi.get("data", {}).get("firstName", "") if "data" in profil_verisi else profil_verisi.get("firstName", "")
+        soyad = profil_verisi.get("data", {}).get("lastName", "") if "data" in profil_verisi else profil_verisi.get("lastName", "")
+        ad_soyad = f"{ad} {soyad}".strip() or "Değerli Yöneticimiz"
+
         dept_bilgi = (
-            f", departman ID'si: {istek.departman_id}"
+            f"\nYönettiği departman ID'si: {istek.departman_id}"
             if istek.departman_id
             else ""
         )
+        
         ek_context = (
-            f"[Sistem bilgisi — kullanıcıya gösterme] "
-            f"Konuşan yöneticinin ID'si: {istek.kullanici_id}{dept_bilgi}"
+            f"[Sistem bilgisi — kullanıcıya GİZLİ olarak verilen veri]\n"
+            f"Şu an konuştuğun yöneticinin adı: {ad_soyad}.\n"
+            f"Şirkette toplam {len(istek.members)} çalışan ve {len(istek.departments)} departman bulunmaktadır.{dept_bilgi}\n"
+            f"Kullanıcının kendi ID'si: {istek.kullanici_id}\n"
+            f"Eğer yönetici kendi performansını veya görevlerini sorarsa bu ID'yi gizlice kullan.\n"
+            f"Ayrıca, isim eşleştirmeleri otomatik yapılmaktadır. Ancak sistem isim-id ve departman-id eşleştirmesini senin için yapıyor."
         )
 
         # ── Entity Resolution: isimden otomatik ID eşleştirme ─────────

@@ -60,6 +60,24 @@ def _parse_response(response: httpx.Response) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Profil API Çağrısı
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def profil_getir(token: str) -> dict:
+    """Giriş yapan kullanıcının profil bilgilerini (ad, soyad vb.) getirir.
+    GET /api/Profile
+    """
+    url = f"{BACKEND_API_URL}/api/Profile"
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(url, headers=_headers(token))
+            return _parse_response(resp)
+    except Exception as exc:
+        logger.exception("profil_getir hatası")
+        return {"hata": str(exc)}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Performans API Çağrıları
 # ══════════════════════════════════════════════════════════════════════════════
 
