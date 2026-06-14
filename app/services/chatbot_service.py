@@ -359,10 +359,27 @@ class ChatbotService:
             else ""
         )
         
+        # 2. Departman Listesini Kontrol Et / API'den Güncelle
+        # Mobil taraftan departments listesi boş gelme ihtimaline karşı backend'den tam listeyi çekelim.
+        departman_listesi_res = await backend_client.departman_listesi_getir(str(istek.business_id), istek.token)
+        departmanlar_api = departman_listesi_res.get("data", []) if isinstance(departman_listesi_res, dict) and "data" in departman_listesi_res else (departman_listesi_res if isinstance(departman_listesi_res, list) else [])
+        
+        if isinstance(departmanlar_api, list) and len(departmanlar_api) > 0:
+            departman_sayisi = len(departmanlar_api)
+            # Mobil uygulamadan departments dizisi boş gelmişse dolduralım (AI tolları için gerekli)
+            if not istek.departments:
+                from app.chatbot_models import DepartmentInfo
+                istek.departments = [
+                    DepartmentInfo(id=str(d.get("id", "")), name=str(d.get("name", ""))) 
+                    for d in departmanlar_api if d.get("id") and d.get("name")
+                ]
+        else:
+            departman_sayisi = len(istek.departments)
+
         ek_context = (
             f"[Sistem bilgisi — kullanıcıya GİZLİ olarak verilen veri]\n"
             f"Şu an konuştuğun yöneticinin adı: {ad_soyad}.\n"
-            f"Şirkette toplam {len(istek.members)} çalışan ve {len(istek.departments)} departman bulunmaktadır.{dept_bilgi}\n"
+            f"Şirkette toplam {len(istek.members)} çalışan ve {departman_sayisi} departman bulunmaktadır.{dept_bilgi}\n"
             f"Kullanıcının kendi ID'si: {istek.kullanici_id}\n"
             f"Eğer yönetici kendi performansını veya görevlerini sorarsa bu ID'yi gizlice kullan.\n"
             f"Ayrıca, isim eşleştirmeleri otomatik yapılmaktadır. Ancak sistem isim-id ve departman-id eşleştirmesini senin için yapıyor."
