@@ -143,13 +143,14 @@ async def performans_gecmisi_getir_api(
     
     import datetime
     bugun = datetime.datetime.utcnow()
-    # Son 1 yıllık raporları çekelim
-    gecmis = bugun - datetime.timedelta(days=365)
+    # 365 gün (1 yıl) aralık verildiğinde backend o geniş aralık için YENİ bir rapor üretiyor ve görevsizlikten dolayı 0 puan çıkıyor.
+    # Mevcut en güncel raporlar genellikle günlük (Bugün-Bugün) üretildiği için, her iki tarihi de aynı (Bugün) veriyoruz.
+    # Böylece sistem zaten var olan bugünkü raporu getirecek veya sadece bugüne ait küçük bir rapor üretecektir.
     
     payload = {
         "businessId": business_id,
         "employeeUserId": calisan_id,
-        "startDate": gecmis.isoformat() + "Z",
+        "startDate": bugun.isoformat() + "Z",
         "endDate": bugun.isoformat() + "Z"
     }
     
