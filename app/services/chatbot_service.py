@@ -32,7 +32,7 @@ try:
         ChatYaniti,
         ChatMesaj,
     )
-    from app.services.chatbot_tools import PERSONEL_TOOLS, YONETICI_TOOLS
+    from app.services.chatbot_tools import PERSONEL_TOOLS, YONETICI_TOOLS, ALL_TOOLS
     from app.services.entity_resolver import (
         resolve as resolve_entities,
         MemberDTO,
@@ -45,7 +45,7 @@ except ImportError:
         ChatYaniti,
         ChatMesaj,
     )
-    from .chatbot_tools import PERSONEL_TOOLS, YONETICI_TOOLS
+    from .chatbot_tools import PERSONEL_TOOLS, YONETICI_TOOLS, ALL_TOOLS
     from .entity_resolver import (
         resolve as resolve_entities,
         MemberDTO,
@@ -162,13 +162,25 @@ class ChatbotService:
             )
         return history
 
+    # ── Yardımcı: Tool fonksiyonlarına context inject et ───────────────────
+
+    def _inject_context(self, business_id: str, token: str) -> None:
+        """Tüm tool fonksiyonlarına business_id ve token'ı inject eder."""
+        for fn in ALL_TOOLS:
+            if hasattr(fn, '_injected'):
+                fn._injected = {
+                    "business_id": business_id,
+                    "token": token,
+                }
+
     # ── Yardımcı: Tool çağrısını işle ─────────────────────────────────────
 
-    def _tool_cagri_isle(
+    async def _tool_cagri_isle(
         self, function_call
     ) -> tuple[str, dict, Optional[str]]:
         """
         Gemini'den gelen function_call nesnesini çalıştırır.
+        Tool fonksiyonları async olduğu için await ile çağrılır.
 
         Returns:
             (tool_adi, tool_sonucu, None) veya hata durumunda
@@ -186,7 +198,7 @@ class ChatbotService:
             )
 
         try:
-            sonuc = fn(**tool_args)
+            sonuc = await fn(**tool_args)
             return tool_adi, sonuc, None
         except Exception as exc:
             return (
@@ -202,16 +214,22 @@ class ChatbotService:
         model: genai.GenerativeModel,
         mesaj: str,
         gecmis: list[ChatMesaj],
+        business_id: str,
+        token: str,
         ek_context: str = "",
     ) -> ChatYaniti:
         """
         Genel chat akışı:
-        1. Geçmişi Gemini formatına çevir
-        2. Kullanıcı mesajını ekle (ek context ile)
-        3. Gemini'ye gönder
-        4. Tool call varsa çalıştır, sonucu Gemini'ye geri gönder
-        5. Son yanıtı ChatYaniti olarak döndür
+        1. Tool fonksiyonlarına business_id/token inject et
+        2. Geçmişi Gemini formatına çevir
+        3. Kullanıcı mesajını ekle (ek context ile)
+        4. Gemini'ye gönder
+        5. Tool call varsa çalıştır, sonucu Gemini'ye geri gönder
+        6. Son yanıtı ChatYaniti olarak döndür
         """
+
+        # 0) Tool fonksiyonlarına context inject et
+        self._inject_context(business_id=business_id, token=token)
 
         # 1) Konuşma geçmişini hazırla
         history = self._gecmisi_donustur(gecmis)
@@ -243,8 +261,8 @@ class ChatbotService:
                 break
 
         if function_call_part is not None:
-            # Tool çağrısını işle
-            tool_adi, tool_sonucu, hata = self._tool_cagri_isle(
+            # Tool çağrısını işle (async)
+            tool_adi, tool_sonucu, hata = await self._tool_cagri_isle(
                 function_call_part.function_call
             )
             islem_yapildi = tool_adi
@@ -297,6 +315,8 @@ class ChatbotService:
             model=self.personel_model,
             mesaj=istek.mesaj,
             gecmis=istek.gecmis,
+            business_id=str(istek.business_id),
+            token=istek.token,
             ek_context=ek_context,
         )
 
@@ -355,5 +375,7 @@ class ChatbotService:
             model=self.yonetici_model,
             mesaj=istek.mesaj,
             gecmis=istek.gecmis,
+            business_id=str(istek.business_id),
+            token=istek.token,
             ek_context=ek_context,
         )

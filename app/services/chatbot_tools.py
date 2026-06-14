@@ -5,12 +5,14 @@ Gemini 2.5 Flash'ın function calling ile çağırabileceği tool'lar.
 Her fonksiyonun açık docstring'i ve type hint'leri Gemini'nin
 tool'u doğru zamanda çağırmasını sağlar.
 
-NOT: Backend entegrasyonu gerektiren tool'lar (görev oluştur, izin talebi vs.)
-şu anda STUB olarak çalışır. Gerçek backend API'leri hazır olduğunda
-bu fonksiyonlar HTTP proxy çağrılarına dönüştürülecektir.
+Tool fonksiyonları Gemini tarafından çağrılır. business_id ve token
+parametreleri Gemini'ye gösterilmez — ChatbotService tarafından
+otomatik inject edilir.
 """
 
 from typing import Optional
+
+from app.services import backend_client
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -18,7 +20,7 @@ from typing import Optional
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def performans_sorgula(calisan_id: str) -> dict:
+async def performans_sorgula(calisan_id: str) -> dict:
     """Çalışanın güncel performans skorunu ve metriklerini getirir.
 
     Args:
@@ -27,21 +29,21 @@ def performans_sorgula(calisan_id: str) -> dict:
     Returns:
         Performans skoru, genel durum ve temel metrikleri içeren sözlük.
     """
-    # STUB: Gerçek implementasyonda PerformansHesaplayici kullanılacak.
-    # Şimdilik backend'den veri gelmediği için örnek veri dönüyoruz.
-    return {
-        "calisan_id": calisan_id,
-        "performans_skoru": 0,
-        "genel_durum": "Veri bekleniyor",
-        "mesaj": (
-            "Bu fonksiyon şu anda stub olarak çalışmaktadır. "
-            "Gerçek performans verisi için backend entegrasyonu gereklidir. "
-            "Çalışanın performans verileri backend API'sinden alınacaktır."
-        ),
-    }
+    # business_id ve token, ChatbotService tarafından inject edilir
+    business_id = performans_sorgula._injected.get("business_id", "")
+    token = performans_sorgula._injected.get("token", "")
+
+    result = await backend_client.performans_getir(
+        business_id=business_id,
+        calisan_id=calisan_id,
+        token=token,
+    )
+    return result
+
+performans_sorgula._injected = {}
 
 
-def gorev_listele(calisan_id: str, durum: Optional[str] = None) -> dict:
+async def gorev_listele(calisan_id: str, durum: Optional[str] = None) -> dict:
     """Çalışanın görevlerini listeler. İsteğe bağlı olarak duruma göre filtreler.
 
     Args:
@@ -52,20 +54,32 @@ def gorev_listele(calisan_id: str, durum: Optional[str] = None) -> dict:
     Returns:
         Görev listesi ve özet bilgiler.
     """
-    # STUB: Backend entegrasyonu ile gerçek görev verileri gelecek
-    return {
-        "calisan_id": calisan_id,
-        "filtre": durum,
-        "gorevler": [],
-        "toplam_gorev": 0,
-        "mesaj": (
-            "Bu fonksiyon şu anda stub olarak çalışmaktadır. "
-            "Gerçek görev verileri backend API'sinden alınacaktır."
-        ),
-    }
+    business_id = gorev_listele._injected.get("business_id", "")
+    token = gorev_listele._injected.get("token", "")
+
+    result = await backend_client.gorevleri_getir(
+        business_id=business_id,
+        token=token,
+        calisan_id=calisan_id,
+    )
+
+    # Duruma göre filtreleme (backend tüm görevleri döndürüyorsa)
+    if durum and isinstance(result, dict) and "data" in result:
+        data = result.get("data")
+        if isinstance(data, list):
+            filtered = [
+                g for g in data
+                if durum.lower() in str(g.get("status", "")).lower()
+            ]
+            result["data"] = filtered
+            result["filtre_uygulandi"] = durum
+
+    return result
+
+gorev_listele._injected = {}
 
 
-def izin_talebi_olustur(
+async def izin_talebi_olustur(
     calisan_id: str,
     baslangic: str,
     bitis: str,
@@ -82,21 +96,22 @@ def izin_talebi_olustur(
     Returns:
         Oluşturulan izin talebinin durumu ve detayları.
     """
-    # STUB: Backend entegrasyonu ile gerçek izin talebi oluşturulacak
-    return {
-        "calisan_id": calisan_id,
-        "baslangic": baslangic,
-        "bitis": bitis,
-        "neden": neden,
-        "durum": "beklemede",
-        "mesaj": (
-            "İzin talebiniz oluşturuldu ve yönetici onayına gönderildi. "
-            "(Bu fonksiyon şu anda stub olarak çalışmaktadır.)"
-        ),
-    }
+    business_id = izin_talebi_olustur._injected.get("business_id", "")
+    token = izin_talebi_olustur._injected.get("token", "")
+
+    result = await backend_client.izin_talebi_olustur_api(
+        business_id=business_id,
+        baslangic=baslangic,
+        bitis=bitis,
+        neden=neden,
+        token=token,
+    )
+    return result
+
+izin_talebi_olustur._injected = {}
 
 
-def performans_gecmisi(calisan_id: str) -> dict:
+async def performans_gecmisi(calisan_id: str) -> dict:
     """Çalışanın önceki dönemlerdeki performans skorlarını ve değişim trendini gösterir.
 
     Args:
@@ -105,16 +120,17 @@ def performans_gecmisi(calisan_id: str) -> dict:
     Returns:
         Dönemsel performans skorları ve trend bilgisi.
     """
-    # STUB: Backend entegrasyonu ile gerçek geçmiş veriler gelecek
-    return {
-        "calisan_id": calisan_id,
-        "gecmis_skorlar": [],
-        "trend": "veri_yok",
-        "mesaj": (
-            "Bu fonksiyon şu anda stub olarak çalışmaktadır. "
-            "Gerçek performans geçmişi backend API'sinden alınacaktır."
-        ),
-    }
+    business_id = performans_gecmisi._injected.get("business_id", "")
+    token = performans_gecmisi._injected.get("token", "")
+
+    result = await backend_client.performans_getir(
+        business_id=business_id,
+        calisan_id=calisan_id,
+        token=token,
+    )
+    return result
+
+performans_gecmisi._injected = {}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -122,7 +138,7 @@ def performans_gecmisi(calisan_id: str) -> dict:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def departman_performans(departman_id: str) -> dict:
+async def departman_performans(departman_id: str) -> dict:
     """Departmanın genel performans özetini getirir.
     Ortalama skor, en iyi ve en düşük performans gibi bilgileri içerir.
 
@@ -132,19 +148,20 @@ def departman_performans(departman_id: str) -> dict:
     Returns:
         Departman performans özeti.
     """
-    # STUB: Backend entegrasyonu ile gerçek departman verileri gelecek
-    return {
-        "departman_id": departman_id,
-        "departman_skoru": 0,
-        "calisan_sayisi": 0,
-        "mesaj": (
-            "Bu fonksiyon şu anda stub olarak çalışmaktadır. "
-            "Gerçek departman verileri backend API'sinden alınacaktır."
-        ),
-    }
+    business_id = departman_performans._injected.get("business_id", "")
+    token = departman_performans._injected.get("token", "")
+
+    result = await backend_client.departman_performans_getir(
+        business_id=business_id,
+        departman_id=departman_id,
+        token=token,
+    )
+    return result
+
+departman_performans._injected = {}
 
 
-def calisan_karsilastir(departman_id: str) -> dict:
+async def calisan_karsilastir(departman_id: str) -> dict:
     """Departmandaki çalışanların performanslarını karşılaştırır.
     En yüksek ve en düşük performanslı çalışanları listeler.
 
@@ -154,18 +171,19 @@ def calisan_karsilastir(departman_id: str) -> dict:
     Returns:
         Çalışan karşılaştırma tablosu.
     """
-    # STUB: Backend entegrasyonu ile gerçek karşılaştırma verileri gelecek
-    return {
-        "departman_id": departman_id,
-        "karsilastirma": [],
-        "mesaj": (
-            "Bu fonksiyon şu anda stub olarak çalışmaktadır. "
-            "Gerçek karşılaştırma verileri backend API'sinden alınacaktır."
-        ),
-    }
+    business_id = calisan_karsilastir._injected.get("business_id", "")
+    token = calisan_karsilastir._injected.get("token", "")
+
+    result = await backend_client.toplu_performans_getir(
+        business_id=business_id,
+        token=token,
+    )
+    return result
+
+calisan_karsilastir._injected = {}
 
 
-def gorev_olustur(
+async def gorev_olustur(
     calisan_id: str,
     gorev_adi: str,
     zorluk: str,
@@ -182,21 +200,23 @@ def gorev_olustur(
     Returns:
         Oluşturulan görevin detayları.
     """
-    # STUB: Backend entegrasyonu ile gerçek görev oluşturulacak
-    return {
-        "calisan_id": calisan_id,
-        "gorev_adi": gorev_adi,
-        "zorluk": zorluk,
-        "bitis_tarihi": bitis_tarihi,
-        "durum": "olusturuldu",
-        "mesaj": (
-            f"'{gorev_adi}' görevi oluşturuldu ve çalışana atandı. "
-            "(Bu fonksiyon şu anda stub olarak çalışmaktadır.)"
-        ),
-    }
+    business_id = gorev_olustur._injected.get("business_id", "")
+    token = gorev_olustur._injected.get("token", "")
+
+    result = await backend_client.gorev_olustur_api(
+        business_id=business_id,
+        calisan_id=calisan_id,
+        gorev_adi=gorev_adi,
+        bitis_tarihi=bitis_tarihi,
+        token=token,
+        aciklama=f"Zorluk seviyesi: {zorluk}",
+    )
+    return result
+
+gorev_olustur._injected = {}
 
 
-def departman_raporu_iste(departman_id: str) -> dict:
+async def departman_raporu_iste(departman_id: str) -> dict:
     """Departman için yapay zeka destekli detaylı performans raporu oluşturur.
 
     Args:
@@ -205,16 +225,17 @@ def departman_raporu_iste(departman_id: str) -> dict:
     Returns:
         Rapor oluşturma durumu ve detayları.
     """
-    # STUB: Backend entegrasyonu ile gerçek rapor verisi alınacak,
-    # ardından PerformanceReportGenerator ile rapor üretilecek
-    return {
-        "departman_id": departman_id,
-        "durum": "olusturuluyor",
-        "mesaj": (
-            "Departman raporu oluşturma talebi alındı. "
-            "(Bu fonksiyon şu anda stub olarak çalışmaktadır.)"
-        ),
-    }
+    business_id = departman_raporu_iste._injected.get("business_id", "")
+    token = departman_raporu_iste._injected.get("token", "")
+
+    result = await backend_client.departman_raporu_getir(
+        business_id=business_id,
+        departman_id=departman_id,
+        token=token,
+    )
+    return result
+
+departman_raporu_iste._injected = {}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -240,3 +261,6 @@ YONETICI_TOOLS = [
     gorev_olustur,
     departman_raporu_iste,
 ]
+
+# Tüm tool'ların _injected attribute'unu ayarlamak için yardımcı
+ALL_TOOLS = YONETICI_TOOLS

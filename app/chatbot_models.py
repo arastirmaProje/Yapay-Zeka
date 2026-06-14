@@ -18,6 +18,8 @@ class PersonelChatIstegi(BaseModel):
     """Personel chatbot isteği. Çalışan kendi verileriyle etkileşir."""
 
     kullanici_id: UUID = Field(..., description="Çalışanın benzersiz ID'si")
+    business_id: UUID = Field(..., description="Çalışanın bağlı olduğu işletme ID'si")
+    token: str = Field(..., description="Kullanıcının JWT token'ı (backend API çağrıları için)")
     mesaj: str = Field(..., description="Kullanıcının gönderdiği mesaj")
     gecmis: List[ChatMesaj] = Field(
         default_factory=list,
@@ -46,6 +48,8 @@ class YoneticiChatIstegi(BaseModel):
     """Yönetici chatbot isteği. Departman yönetimi ve ekip analizi."""
 
     kullanici_id: UUID = Field(..., description="Yöneticinin benzersiz ID'si")
+    business_id: UUID = Field(..., description="Yöneticinin bağlı olduğu işletme ID'si")
+    token: str = Field(..., description="Kullanıcının JWT token'ı (backend API çağrıları için)")
     departman_id: Optional[UUID] = Field(
         None, description="Yöneticinin departman ID'si (opsiyonel)"
     )
