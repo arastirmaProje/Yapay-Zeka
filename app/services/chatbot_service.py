@@ -327,10 +327,25 @@ class ChatbotService:
         soyad = profil_data.get("lastName") or profil_data.get("LastName") or ""
         ad_soyad = f"{ad} {soyad}".strip() or "Değerli Çalışanımız"
 
+        # 2. Çalışanın kendi departman/pozisyon bilgisini alalım
+        calisan_listesi_res = await backend_client.calisan_listesi_getir(str(istek.business_id), istek.token)
+        calisanlar_api = calisan_listesi_res.get("data") or calisan_listesi_res.get("Data") or calisan_listesi_res.get("items") or [] if isinstance(calisan_listesi_res, dict) else (calisan_listesi_res if isinstance(calisan_listesi_res, list) else [])
+        
+        benim_departmanim = "Bilinmiyor"
+        benim_pozisyonum = "Bilinmiyor"
+        for c in calisanlar_api:
+            c_id = str(c.get("userId") or c.get("UserId") or c.get("userid") or "")
+            if c_id == str(istek.kullanici_id):
+                benim_departmanim = str(c.get("departmentName") or c.get("DepartmentName") or "Bilinmiyor")
+                benim_pozisyonum = str(c.get("positionName") or c.get("PositionName") or "Bilinmiyor")
+                break
+
         ek_context = (
             f"[Sistem bilgisi — kullanıcıya GİZLİ olarak verilen veri]\n"
             f"Senin konuştuğun kişinin adı: {ad_soyad}.\n"
             f"Kullanıcının sistem ID'si: {istek.kullanici_id}\n"
+            f"Kullanıcının departmanı: {benim_departmanim}\n"
+            f"Kullanıcının pozisyonu: {benim_pozisyonum}\n"
             f"Eğer kullanıcı 'görevlerim', 'performansım' gibi KENDİ verilerini sorarsa "
             f"bu ID'yi kullanarak araçlarını (tool) çalıştır. Ancak kullanıcıya asla bu ID bilgisini gösterme, sadece 'isminizi biliyorum' de."
         )
@@ -408,9 +423,20 @@ class ChatbotService:
         else:
             calisan_sayisi = len(istek.members)
 
+        benim_departmanim = "Bilinmiyor"
+        benim_pozisyonum = "Bilinmiyor"
+        for c in calisanlar_api:
+            c_id = str(c.get("userId") or c.get("UserId") or c.get("userid") or "")
+            if c_id == str(istek.kullanici_id):
+                benim_departmanim = str(c.get("departmentName") or c.get("DepartmentName") or "Bilinmiyor")
+                benim_pozisyonum = str(c.get("positionName") or c.get("PositionName") or "Bilinmiyor")
+                break
+
         ek_context = (
             f"[Sistem bilgisi — kullanıcıya GİZLİ olarak verilen veri]\n"
             f"Şu an konuştuğun yöneticinin adı: {ad_soyad}.\n"
+            f"Kullanıcının kendi departmanı: {benim_departmanim}\n"
+            f"Kullanıcının kendi pozisyonu: {benim_pozisyonum}\n"
             f"Şirkette toplam {calisan_sayisi} çalışan ve {departman_sayisi} departman bulunmaktadır.{dept_bilgi}\n"
             f"Kullanıcının kendi ID'si: {istek.kullanici_id}\n"
             f"Eğer yönetici kendi performansını veya görevlerini sorarsa bu ID'yi gizlice kullan.\n"

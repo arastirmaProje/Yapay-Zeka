@@ -262,6 +262,39 @@ async def tum_departman_skorlarini_getir() -> dict:
 tum_departman_skorlarini_getir._injected = {}
 
 
+async def tum_calisanlari_listele() -> dict:
+    """Şirketteki tüm çalışanların listesini (isim, departman, pozisyon bilgileriyle) getirir.
+    'Tüm çalışanları listeler misin', 'Çalışan listesini getir' gibi taleplerde bu aracı kullanın.
+    
+    Returns:
+        Şirketteki çalışanların listesi.
+    """
+    business_id = tum_calisanlari_listele._injected.get("business_id", "")
+    token = tum_calisanlari_listele._injected.get("token", "")
+
+    result = await backend_client.calisan_listesi_getir(business_id=business_id, token=token)
+    
+    if isinstance(result, dict) and result.get("hata"):
+        return result
+        
+    calisanlar_api = result.get("data") or result.get("Data") or result.get("items") or [] if isinstance(result, dict) else (result if isinstance(result, list) else [])
+    
+    ozet_liste = []
+    for c in calisanlar_api:
+        ad_soyad = str(c.get("fullName") or c.get("FullName") or "")
+        departman = str(c.get("departmentName") or c.get("DepartmentName") or "Bilinmiyor")
+        pozisyon = str(c.get("positionName") or c.get("PositionName") or "Bilinmiyor")
+        if ad_soyad:
+            ozet_liste.append(f"{ad_soyad} - Departman: {departman} - Pozisyon: {pozisyon}")
+            
+    if not ozet_liste:
+        return {"mesaj": "Şirkette kayıtlı çalışan bulunamadı veya liste çekilemedi."}
+        
+    return {"calisanlar": ozet_liste}
+
+tum_calisanlari_listele._injected = {}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # TOOL LİSTELERİ — ChatbotService tarafından kullanılır
 # ══════════════════════════════════════════════════════════════════════════════
@@ -285,6 +318,7 @@ YONETICI_TOOLS = [
     gorev_olustur,
     departman_raporu_iste,
     tum_departman_skorlarini_getir,
+    tum_calisanlari_listele,
 ]
 
 # Tüm tool'ların _injected attribute'unu ayarlamak için yardımcı
