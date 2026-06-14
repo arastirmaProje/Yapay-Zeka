@@ -322,8 +322,9 @@ class ChatbotService:
         """Personel chatbot'u — çalışan kendi verileriyle etkileşir."""
         # 1. API'den kullanıcının adını/soyadını alalım (Kişiselleştirme)
         profil_verisi = await backend_client.profil_getir(istek.token)
-        ad = profil_verisi.get("data", {}).get("firstName", "") if "data" in profil_verisi else profil_verisi.get("firstName", "")
-        soyad = profil_verisi.get("data", {}).get("lastName", "") if "data" in profil_verisi else profil_verisi.get("lastName", "")
+        profil_data = profil_verisi.get("data") or profil_verisi.get("Data") or profil_verisi
+        ad = profil_data.get("firstName") or profil_data.get("FirstName") or ""
+        soyad = profil_data.get("lastName") or profil_data.get("LastName") or ""
         ad_soyad = f"{ad} {soyad}".strip() or "Değerli Çalışanımız"
 
         ek_context = (
@@ -349,8 +350,9 @@ class ChatbotService:
         """Yönetici chatbot'u — departman yönetimi ve ekip analizi."""
         # 1. API'den yöneticinin adını/soyadını alalım
         profil_verisi = await backend_client.profil_getir(istek.token)
-        ad = profil_verisi.get("data", {}).get("firstName", "") if "data" in profil_verisi else profil_verisi.get("firstName", "")
-        soyad = profil_verisi.get("data", {}).get("lastName", "") if "data" in profil_verisi else profil_verisi.get("lastName", "")
+        profil_data = profil_verisi.get("data") or profil_verisi.get("Data") or profil_verisi
+        ad = profil_data.get("firstName") or profil_data.get("FirstName") or ""
+        soyad = profil_data.get("lastName") or profil_data.get("LastName") or ""
         ad_soyad = f"{ad} {soyad}".strip() or "Değerli Yöneticimiz"
 
         dept_bilgi = (
@@ -362,17 +364,24 @@ class ChatbotService:
         # 2. Departman Listesini Kontrol Et / API'den Güncelle
         # Mobil taraftan departments listesi boş gelme ihtimaline karşı backend'den tam listeyi çekelim.
         departman_listesi_res = await backend_client.departman_listesi_getir(str(istek.business_id), istek.token)
-        departmanlar_api = departman_listesi_res.get("data", []) if isinstance(departman_listesi_res, dict) and "data" in departman_listesi_res else (departman_listesi_res if isinstance(departman_listesi_res, list) else [])
         
-        if isinstance(departmanlar_api, list) and len(departmanlar_api) > 0:
+        if isinstance(departman_listesi_res, dict):
+            departmanlar_api = departman_listesi_res.get("data") or departman_listesi_res.get("Data") or departman_listesi_res.get("items") or []
+        elif isinstance(departman_listesi_res, list):
+            departmanlar_api = departman_listesi_res
+        else:
+            departmanlar_api = []
+        
+        if departmanlar_api and len(departmanlar_api) > 0:
             departman_sayisi = len(departmanlar_api)
             # Mobil uygulamadan departments dizisi boş gelmişse dolduralım (AI tolları için gerekli)
             if not istek.departments:
                 from app.chatbot_models import DepartmentInfo
-                istek.departments = [
-                    DepartmentInfo(id=str(d.get("id", "")), name=str(d.get("name", ""))) 
-                    for d in departmanlar_api if d.get("id") and d.get("name")
-                ]
+                for d in departmanlar_api:
+                    d_id = str(d.get("id") or d.get("Id") or d.get("ID") or "")
+                    d_name = str(d.get("name") or d.get("Name") or "")
+                    if d_id and d_name:
+                        istek.departments.append(DepartmentInfo(id=d_id, name=d_name))
         else:
             departman_sayisi = len(istek.departments)
 
