@@ -25,6 +25,7 @@ BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://178.104.144.148:8080")
 
 # HTTP client timeout ayarları (saniye)
 _TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
+_BULK_TIMEOUT = httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -120,7 +121,7 @@ async def toplu_performans_getir(
     if end_date:
         payload["endDate"] = end_date
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=_BULK_TIMEOUT) as client:
             resp = await client.post(url, json=payload, headers=_headers(token))
             return _parse_response(resp)
     except httpx.ConnectError:
@@ -150,7 +151,7 @@ async def departman_raporu_getir(
     if end_date:
         payload["endDate"] = end_date
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=_BULK_TIMEOUT) as client:
             resp = await client.post(url, json=payload, headers=_headers(token))
             return _parse_response(resp)
     except httpx.ConnectError:
