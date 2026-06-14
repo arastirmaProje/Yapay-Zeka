@@ -318,12 +318,23 @@ async def izin_talebi_olustur_api(
     POST /api/Leave
     """
     url = f"{BACKEND_API_URL}/api/Leave"
+    
+    import datetime
+    def _format_date(d_str: str) -> str:
+        try:
+            if "T" not in d_str:
+                # Gelen YYYY-MM-DD formatını ISO 8601'e çevir
+                return datetime.datetime.strptime(d_str.strip()[:10], "%Y-%m-%d").isoformat() + "Z"
+        except Exception:
+            pass
+        return d_str
+
     payload = {
         "businessId": business_id,
-        "title": neden,
-        "description": neden,
-        "startDate": baslangic,
-        "endDate": bitis,
+        "title": neden if neden and len(neden) > 1 else "İzin Talebi",
+        "description": neden if neden and len(neden) > 1 else "Mazeret bildirilmedi.",
+        "startDate": _format_date(baslangic),
+        "endDate": _format_date(bitis),
     }
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
