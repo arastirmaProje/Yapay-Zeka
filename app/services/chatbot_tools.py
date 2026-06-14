@@ -186,7 +186,6 @@ calisan_karsilastir._injected = {}
 async def gorev_olustur(
     calisan_id: str,
     gorev_adi: str,
-    zorluk: str,
     bitis_tarihi: str,
 ) -> dict:
     """Belirtilen çalışana yeni bir görev oluşturur ve atar.
@@ -194,7 +193,6 @@ async def gorev_olustur(
     Args:
         calisan_id: Görevin atanacağı çalışanın benzersiz kimlik numarası.
         gorev_adi: Görevin başlığı veya kısa açıklaması.
-        zorluk: Görev zorluk seviyesi. Seçenekler: çok kolay, kolay, orta, zor, çok zor
         bitis_tarihi: Görevin tamamlanması gereken son tarih. Örnek: 2026-01-20
 
     Returns:
@@ -209,7 +207,6 @@ async def gorev_olustur(
         gorev_adi=gorev_adi,
         bitis_tarihi=bitis_tarihi,
         token=token,
-        aciklama=f"Zorluk seviyesi: {zorluk}",
     )
     return result
 
