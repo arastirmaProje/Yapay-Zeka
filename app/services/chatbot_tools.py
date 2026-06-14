@@ -235,6 +235,33 @@ async def departman_raporu_iste(departman_id: str) -> dict:
 departman_raporu_iste._injected = {}
 
 
+async def tum_departman_skorlarini_getir() -> dict:
+    """Tüm departmanların performans skorlarını toplu olarak getirir ve karşılaştırma sağlar. Departman bazlı toplu performans bilgisi istendiğinde bu aracı kullanın.
+
+    Returns:
+        Tüm departmanların güncel performans skorları ve analizleri.
+    """
+    business_id = tum_departman_skorlarini_getir._injected.get("business_id", "")
+    token = tum_departman_skorlarini_getir._injected.get("token", "")
+    departments = tum_departman_skorlarini_getir._injected.get("departments", [])
+
+    if not departments:
+        return {"hata": "Departman listesi bulunamadı veya yöneticinin erişim yetkisi olan departman yok."}
+
+    import asyncio
+    
+    async def fetch_dep(dep):
+        res = await backend_client.departman_performans_getir(business_id, dep["id"], token)
+        return {"departman_adi": dep["name"], "sonuc": res}
+        
+    tasks = [fetch_dep(dep) for dep in departments]
+    results = await asyncio.gather(*tasks)
+    
+    return {"tum_departman_skorlari": results}
+
+tum_departman_skorlarini_getir._injected = {}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # TOOL LİSTELERİ — ChatbotService tarafından kullanılır
 # ══════════════════════════════════════════════════════════════════════════════
@@ -257,6 +284,7 @@ YONETICI_TOOLS = [
     calisan_karsilastir,
     gorev_olustur,
     departman_raporu_iste,
+    tum_departman_skorlarini_getir,
 ]
 
 # Tüm tool'ların _injected attribute'unu ayarlamak için yardımcı

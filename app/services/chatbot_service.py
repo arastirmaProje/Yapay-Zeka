@@ -164,13 +164,14 @@ class ChatbotService:
 
     # ── Yardımcı: Tool fonksiyonlarına context inject et ───────────────────
 
-    def _inject_context(self, business_id: str, token: str) -> None:
-        """Tüm tool fonksiyonlarına business_id ve token'ı inject eder."""
+    def _inject_context(self, business_id: str, token: str, departments: list = None) -> None:
+        """Tüm tool fonksiyonlarına business_id, token ve departments inject eder."""
         for fn in ALL_TOOLS:
             if hasattr(fn, '_injected'):
                 fn._injected = {
                     "business_id": business_id,
                     "token": token,
+                    "departments": departments or [],
                 }
 
     # ── Yardımcı: Tool çağrısını işle ─────────────────────────────────────
@@ -217,6 +218,7 @@ class ChatbotService:
         business_id: str,
         token: str,
         ek_context: str = "",
+        departments: list = None,
     ) -> ChatYaniti:
         """
         Genel chat akışı:
@@ -229,7 +231,7 @@ class ChatbotService:
         """
 
         # 0) Tool fonksiyonlarına context inject et
-        self._inject_context(business_id=business_id, token=token)
+        self._inject_context(business_id=business_id, token=token, departments=departments)
 
         # 1) Konuşma geçmişini hazırla
         history = self._gecmisi_donustur(gecmis)
@@ -378,4 +380,5 @@ class ChatbotService:
             business_id=str(istek.business_id),
             token=istek.token,
             ek_context=ek_context,
+            departments=[d.model_dump() for d in istek.departments]
         )
