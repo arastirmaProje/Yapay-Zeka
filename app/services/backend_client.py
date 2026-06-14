@@ -131,6 +131,37 @@ async def performans_getir(
         return {"hata": f"Beklenmeyen hata: {str(exc)}"}
 
 
+async def performans_gecmisi_getir_api(
+    business_id: str, calisan_id: str, token: str
+) -> dict:
+    """
+    Çalışanın geçmişte kaydedilmiş (veya veritabanındaki) performans raporlarını getirir.
+    Sıfırdan hesaplama YAPMAZ, sadece mevcut kayıtları okur.
+    POST /api/Performance/query
+    """
+    url = f"{BACKEND_API_URL}/api/Performance/query"
+    
+    import datetime
+    bugun = datetime.datetime.utcnow()
+    # Son 1 yıllık raporları çekelim
+    gecmis = bugun - datetime.timedelta(days=365)
+    
+    payload = {
+        "businessId": business_id,
+        "employeeUserId": calisan_id,
+        "startDate": gecmis.isoformat() + "Z",
+        "endDate": bugun.isoformat() + "Z"
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.post(url, headers=_headers(token), json=payload)
+            return _parse_response(resp)
+    except Exception as exc:
+        logger.exception("performans_gecmisi_getir_api hatası")
+        return {"hata": f"Geçmiş raporlar çekilirken beklenmeyen hata: {str(exc)}"}
+
+
 async def departman_performans_getir(
     business_id: str, departman_id: str, token: str
 ) -> dict:

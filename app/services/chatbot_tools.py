@@ -21,17 +21,53 @@ from app.services import backend_client
 
 
 async def performans_sorgula(calisan_id: str) -> dict:
-    """Çalışanın güncel performans skorunu ve metriklerini getirir.
+    """Çalışanın sistemde kayıtlı olan EN SON (en güncel) performans skorunu getirir.
+    DİKKAT: Bu araç sıfırdan yeni hesaplama YAPMAZ.
+    Sadece mevcut kayıtlı skoru öğrenmek ("en sonki skorum nedir", "performansımı getir") için kullanılır.
 
     Args:
         calisan_id: Çalışanın benzersiz kimlik numarası.
 
     Returns:
-        Performans skoru, genel durum ve temel metrikleri içeren sözlük.
+        Kayıtlı en son performans raporu ve skoru.
     """
-    # business_id ve token, ChatbotService tarafından inject edilir
     business_id = performans_sorgula._injected.get("business_id", "")
     token = performans_sorgula._injected.get("token", "")
+
+    result = await backend_client.performans_gecmisi_getir_api(
+        business_id=business_id,
+        calisan_id=calisan_id,
+        token=token,
+    )
+    
+    # API hata dönerse
+    if isinstance(result, dict) and result.get("hata"):
+        return result
+        
+    # Gelen veri liste ise en sonuncuyu alalım
+    kayitlar = result.get("data") or result.get("Data") or result.get("items") or [] if isinstance(result, dict) else (result if isinstance(result, list) else [])
+    if not kayitlar or len(kayitlar) == 0:
+        return {"mesaj": "Sistemde henüz hesaplanmış bir performans raporunuz bulunamadı. Lütfen yeni bir performans skoru hesaplanmasını isteyin."}
+        
+    en_son_kayit = kayitlar[-1]
+    
+    return {"en_son_performans_raporu": en_son_kayit}
+
+performans_sorgula._injected = {}
+
+
+async def yeni_performans_hesapla(calisan_id: str) -> dict:
+    """Çalışanın performans skorunu SIFIRDAN YENİDEN HESAPLAR ve detaylı yeni rapor oluşturur.
+    Kullanıcı açıkça 'yeni performans skoru yap', 'hesapla', 'yeniden değerlendir' dediğinde kullanılır.
+
+    Args:
+        calisan_id: Çalışanın benzersiz kimlik numarası.
+
+    Returns:
+        Sıfırdan hesaplanan yeni performans skoru ve analiz raporu.
+    """
+    business_id = yeni_performans_hesapla._injected.get("business_id", "")
+    token = yeni_performans_hesapla._injected.get("token", "")
 
     result = await backend_client.performans_getir(
         business_id=business_id,
@@ -40,7 +76,7 @@ async def performans_sorgula(calisan_id: str) -> dict:
     )
     return result
 
-performans_sorgula._injected = {}
+yeni_performans_hesapla._injected = {}
 
 
 async def gorev_listele(calisan_id: str, durum: Optional[str] = None) -> dict:
@@ -112,18 +148,19 @@ izin_talebi_olustur._injected = {}
 
 
 async def performans_gecmisi(calisan_id: str) -> dict:
-    """Çalışanın önceki dönemlerdeki performans skorlarını ve değişim trendini gösterir.
+    """Çalışanın önceki dönemlerdeki TÜM geçmiş performans skorlarını ve değişim trendini gösterir.
+    Sıfırdan hesaplama yapmaz.
 
     Args:
         calisan_id: Çalışanın benzersiz kimlik numarası.
 
     Returns:
-        Dönemsel performans skorları ve trend bilgisi.
+        Dönemsel performans skorları ve trend bilgisi listesi.
     """
     business_id = performans_gecmisi._injected.get("business_id", "")
     token = performans_gecmisi._injected.get("token", "")
 
-    result = await backend_client.performans_getir(
+    result = await backend_client.performans_gecmisi_getir_api(
         business_id=business_id,
         calisan_id=calisan_id,
         token=token,
@@ -301,6 +338,7 @@ tum_calisanlari_listele._injected = {}
 
 PERSONEL_TOOLS = [
     performans_sorgula,
+    yeni_performans_hesapla,
     gorev_listele,
     izin_talebi_olustur,
     performans_gecmisi,
@@ -309,6 +347,7 @@ PERSONEL_TOOLS = [
 YONETICI_TOOLS = [
     # Personel tool'larının tamamı
     performans_sorgula,
+    yeni_performans_hesapla,
     gorev_listele,
     izin_talebi_olustur,
     performans_gecmisi,
