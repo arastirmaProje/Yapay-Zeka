@@ -91,6 +91,20 @@ async def departman_listesi_getir(business_id: str, token: str) -> dict:
         return {"hata": str(exc)}
 
 
+async def calisan_listesi_getir(business_id: str, token: str) -> dict:
+    """İşletmeye ait tüm çalışanların (üyelerin) listesini getirir.
+    GET /api/BusinessMember/business/{businessId}
+    """
+    url = f"{BACKEND_API_URL}/api/BusinessMember/business/{business_id}"
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(url, headers=_headers(token))
+            return _parse_response(resp)
+    except Exception as exc:
+        logger.exception("calisan_listesi_getir hatası")
+        return {"hata": str(exc)}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Performans API Çağrıları
 # ══════════════════════════════════════════════════════════════════════════════

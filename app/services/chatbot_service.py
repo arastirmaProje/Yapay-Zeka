@@ -385,10 +385,33 @@ class ChatbotService:
         else:
             departman_sayisi = len(istek.departments)
 
+        # 3. Çalışan Listesini Kontrol Et / API'den Güncelle
+        # Mobil taraftan members (çalışanlar) listesi boş gelirse, ID eşleştirmesi çalışmaz.
+        calisan_listesi_res = await backend_client.calisan_listesi_getir(str(istek.business_id), istek.token)
+        
+        if isinstance(calisan_listesi_res, dict):
+            calisanlar_api = calisan_listesi_res.get("data") or calisan_listesi_res.get("Data") or calisan_listesi_res.get("items") or []
+        elif isinstance(calisan_listesi_res, list):
+            calisanlar_api = calisan_listesi_res
+        else:
+            calisanlar_api = []
+            
+        if calisanlar_api and len(calisanlar_api) > 0:
+            calisan_sayisi = len(calisanlar_api)
+            if not istek.members:
+                from app.chatbot_models import MemberInfo
+                for c in calisanlar_api:
+                    c_id = str(c.get("userId") or c.get("UserId") or c.get("userid") or "")
+                    c_name = str(c.get("fullName") or c.get("FullName") or c.get("fullname") or "")
+                    if c_id and c_name:
+                        istek.members.append(MemberInfo(user_id=c_id, full_name=c_name))
+        else:
+            calisan_sayisi = len(istek.members)
+
         ek_context = (
             f"[Sistem bilgisi — kullanıcıya GİZLİ olarak verilen veri]\n"
             f"Şu an konuştuğun yöneticinin adı: {ad_soyad}.\n"
-            f"Şirkette toplam {len(istek.members)} çalışan ve {departman_sayisi} departman bulunmaktadır.{dept_bilgi}\n"
+            f"Şirkette toplam {calisan_sayisi} çalışan ve {departman_sayisi} departman bulunmaktadır.{dept_bilgi}\n"
             f"Kullanıcının kendi ID'si: {istek.kullanici_id}\n"
             f"Eğer yönetici kendi performansını veya görevlerini sorarsa bu ID'yi gizlice kullan.\n"
             f"Ayrıca, isim eşleştirmeleri otomatik yapılmaktadır. Ancak sistem isim-id ve departman-id eşleştirmesini senin için yapıyor."
