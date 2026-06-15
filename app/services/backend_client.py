@@ -322,16 +322,18 @@ async def izin_talebi_olustur_api(
     """
     url = f"{BACKEND_API_URL}/api/Leave"
     
-    import datetime
+    import dateutil.parser
     def _format_date(d_str: str, is_end: bool = False) -> str:
         try:
-            if "T" not in d_str:
-                # Gelen YYYY-MM-DD formatını yerel saat (local) gibi algılanması için Z olmadan gönderelim.
-                # Bitiş tarihi ise günün sonuna (23:59:59) ayarlayalım ki gün kayması/çakışması yaşanmasın.
-                date_obj = datetime.datetime.strptime(d_str.strip()[:10], "%Y-%m-%d")
-                if is_end:
-                    date_obj = date_obj.replace(hour=23, minute=59, second=59)
-                return date_obj.isoformat()
+            # Yapay zeka farklı formatlarda ("12.08.2026", "2026-08-12") tarih gönderebilir.
+            # dateutil.parser ile tüm formatları yakalıyoruz. dayfirst=True ile "12.08" formatını ay-gün olarak değil gün-ay olarak anlıyoruz.
+            date_obj = dateutil.parser.parse(d_str, dayfirst=True)
+            if is_end:
+                date_obj = date_obj.replace(hour=23, minute=59, second=59)
+            else:
+                date_obj = date_obj.replace(hour=0, minute=0, second=0)
+            # Yerel saat gibi algılanması için Z olmadan isoformat
+            return date_obj.isoformat()
         except Exception:
             pass
         return d_str
