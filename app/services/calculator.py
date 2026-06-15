@@ -155,6 +155,26 @@ class PerformansHesaplayici:
         )
         return max(0.0, min(100.0, model_skor + bonus_ceza))
 
+    def toplu_hesapla(self, istekler: list) -> List[float]:
+        if not istekler:
+            return []
+        
+        vektorler = [self._hazirla_feature_vektor(istek) for istek in istekler]
+        df = pd.DataFrame(vektorler)
+        df = df.reindex(columns=self.feature_names, fill_value=0)
+        model_skorlar = self.model.predict(df)
+        
+        sonuclar = []
+        for i, istek in enumerate(istekler):
+            bonus_ceza = self._mesai_bonus_ceza_hesapla(
+                istek.hedeflenen_mesai_saati,
+                istek.gerceklesen_mesai_saati
+            )
+            skor = max(0.0, min(100.0, float(model_skorlar[i]) + bonus_ceza))
+            sonuclar.append(skor)
+            
+        return sonuclar
+
     # ── Departman metodları ───────────────────────────────────────────────
 
     def departman_skoru_hesapla(

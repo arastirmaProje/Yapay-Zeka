@@ -102,10 +102,10 @@ KURALLAR:
 - ŞİRKET DIŞI KONULAR YASAKTIR: Sen bir iş asistanısın. Hava durumu, genel geyik muhabbeti, tarih, siyaset gibi saçma veya iş dışı sorulara yanıt verme. "Ben bir şirket asistanıyım, sadece iş süreçleri hakkında yardımcı olabilirim" diyerek kibarca reddet.
 - KİŞİSELLEŞTİRME VE GİZLİLİK: Kullanıcıya asla ID (UUID vb.) detaylarından bahsetme. "ID'mi biliyor musun?" diyenlere "Sisteme giriş yaptığınız için sizi tanıyorum" şeklinde yanıt ver. Sana arka planda verilen kendi yöneticilik yetkilerindeki departman/çalışan listesini kullanarak doğal iletişim kur.
 - ŞİRKET İSTATİSTİKLERİ: Sana arka planda şirketteki departman ve çalışan sayıları verilecek, istendiğinde bunları paylaşabilirsin.
-- Kullanıcının ID'si, adı ve departman ID'si her istekte sana verilecek, tool çağrılarında bunları kullan.
+- Kullanıcının kendi ID'si, adı ve departman ID'si her istekte sana verilecek. Kullanıcı SADECE KENDİSİYLE ilgili bir işlem (ör: kendi izin talebi, kendi görevleri) yapıyorsa bu ID'yi kullan.
+- BAŞKASINA (bir çalışana) yönelik işlem (ör: görev oluşturma, performans sorgulama) yapılacaksa ve mesajda kişi belirtilmemişse, mutlaka "Kime / Hangi çalışana?" diye sor. Asla varsayılan olarak yöneticinin kendi ID'sini bu tür işlemler için kullanma.
 - Mesajda bir çalışan adı veya departman adı geçtiğinde, sistem otomatik olarak eşleşen ID'yi bulur ve sana context olarak verir. Bu ID'leri tool çağrılarında doğrudan kullan, kullanıcıdan tekrar ID sorma.
-- Eğer otomatik eşleşme sonucu context'te bir calisan_id veya departman_id verilmişse, onu doğrudan tool parametresi olarak kullan.
-- Eğer otomatik eşleşme bulunamazsa ve tool çağrısı için ID gerekiyorsa, o zaman kullanıcıya nazikçe sor."""
+- Eğer otomatik eşleşme bulunamazsa ve tool çağrısı için departman veya çalışan ID'si gerekiyorsa, o zaman kullanıcıya nazikçe sor."""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -254,10 +254,17 @@ class ChatbotService:
         tam_mesaj = f"{ek_context}\n\n{mesaj}" if ek_context else mesaj
 
         # 4) Gemini'ye gönder
-        response = chat.send_message(
-            tam_mesaj,
-            tool_config=self.tool_config,
-        )
+        try:
+            response = chat.send_message(
+                tam_mesaj,
+                tool_config=self.tool_config,
+            )
+        except Exception as e:
+            return ChatYaniti(
+                yanit=f"Üzgünüm, mesajınızı işlerken yapay zeka servisinde bir sorun oluştu: {str(e)}",
+                islem_yapildi=None,
+                veri=None,
+            )
 
         # 5) Tool call kontrolü
         islem_yapildi = None
@@ -281,6 +288,10 @@ class ChatbotService:
             islem_yapildi = tool_adi
             tool_verisi = tool_sonucu
 
+            # Gemini, FunctionResponse.response için her zaman dict bekler.
+            # tool_sonucu liste veya başka bir tür dönmüşse dict içine sar.
+            safe_response = tool_sonucu if isinstance(tool_sonucu, dict) else {"sonuc": tool_sonucu}
+
             # Tool sonucunu Gemini'ye geri gönder
             tool_response = genai.protos.Content(
                 role="function",
@@ -288,14 +299,21 @@ class ChatbotService:
                     genai.protos.Part(
                         function_response=genai.protos.FunctionResponse(
                             name=tool_adi,
-                            response=tool_sonucu,
+                            response=safe_response,
                         )
                     )
                 ],
             )
 
             # Gemini'den son yanıtı al
-            response = chat.send_message(tool_response)
+            try:
+                response = chat.send_message(tool_response)
+            except Exception as e:
+                return ChatYaniti(
+                    yanit=f"İşleminiz yapıldı ancak sonucun raporlanmasında bir sorun oluştu: {str(e)}",
+                    islem_yapildi=tool_adi,
+                    veri=tool_sonucu,
+                )
 
         # 6) Son yanıt metnini al
         yanit_metni = ""
@@ -432,15 +450,18 @@ class ChatbotService:
                 benim_pozisyonum = str(c.get("positionName") or c.get("PositionName") or "Bilinmiyor")
                 break
 
+        departman_listesi_str = ", ".join([f"{d.name} (ID: {d.id})" for d in istek.departments]) if istek.departments else "Bilinmiyor"
+
         ek_context = (
             f"[Sistem bilgisi — kullanıcıya GİZLİ olarak verilen veri]\n"
             f"Şu an konuştuğun yöneticinin adı: {ad_soyad}.\n"
             f"Kullanıcının kendi departmanı: {benim_departmanim}\n"
             f"Kullanıcının kendi pozisyonu: {benim_pozisyonum}\n"
             f"Şirkette toplam {calisan_sayisi} çalışan ve {departman_sayisi} departman bulunmaktadır.{dept_bilgi}\n"
+            f"Departman Listesi (İsim ve ID Eşleştirmesi): {departman_listesi_str}\n"
             f"Kullanıcının kendi ID'si: {istek.kullanici_id}\n"
             f"Eğer yönetici kendi performansını veya görevlerini sorarsa bu ID'yi gizlice kullan.\n"
-            f"Ayrıca, isim eşleştirmeleri otomatik yapılmaktadır. Ancak sistem isim-id ve departman-id eşleştirmesini senin için yapıyor."
+            f"Ayrıca, isim eşleştirmeleri otomatik yapılmaktadır. Ancak sistem isim-id ve departman-id eşleştirmesini senin için yapıyor. Tool çağırırken her zaman bu listedeki ID'leri kullan."
         )
 
         # ── Entity Resolution: isimden otomatik ID eşleştirme ─────────

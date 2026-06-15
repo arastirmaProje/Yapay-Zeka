@@ -133,9 +133,12 @@ def performans_grafikleri(istek: PerformansIstegi):
 )
 def toplu_skor_hesapla(istekler: list[PerformansIstegi]):
     try:
+        if not istekler:
+            return TopluPerformansSkorlari(toplam_calisan=0, skorlar=[])
+            
+        hesaplanan_skorlar = calculator.toplu_hesapla(istekler)
         skorlar = []
-        for istek in istekler:
-            skor = calculator.hesapla(istek)
+        for istek, skor in zip(istekler, hesaplanan_skorlar):
             skorlar.append(
                 TopluPerformansSkoru(
                     calisan_id=istek.calisan_id,
@@ -162,14 +165,13 @@ def toplu_skor_hesapla(istekler: list[PerformansIstegi]):
 )
 def departman_raporu_olustur(istek: DepartmanIstegi):
     try:
-        calisan_skorlari_liste = []
+        calisan_skorlari_liste = calculator.toplu_hesapla(istek.calisanlar)
         calisan_analizleri = []
         calisan_skor_ozetleri = []
 
-        for calisan in istek.calisanlar:
-            skor = calculator.hesapla(calisan)
+        for i, calisan in enumerate(istek.calisanlar):
+            skor = calisan_skorlari_liste[i]
             analiz = calculator.analiz_ozeti_getir(calisan)
-            calisan_skorlari_liste.append(skor)
             calisan_analizleri.append(analiz)
             calisan_skor_ozetleri.append(
                 CalisanSkorOzeti(
@@ -233,7 +235,10 @@ def departman_grafikleri(istekler: list[DepartmanIstegi]):
         departman_verileri = []
 
         for dept in istekler:
-            calisan_skorlari = []
+            if not dept.calisanlar:
+                continue
+                
+            calisan_skorlari = calculator.toplu_hesapla(dept.calisanlar)
             calisan_analizleri = []
             toplam_hedeflenen = 0.0
             toplam_gerceklesen = 0.0
@@ -241,10 +246,9 @@ def departman_grafikleri(istekler: list[DepartmanIstegi]):
             toplam_tamamlanamayan = 0
             toplam_izin = 0
 
-            for calisan in dept.calisanlar:
-                skor = calculator.hesapla(calisan)
+            for i, calisan in enumerate(dept.calisanlar):
+                skor = calisan_skorlari[i]
                 analiz = calculator.analiz_ozeti_getir(calisan)
-                calisan_skorlari.append(skor)
                 calisan_analizleri.append(analiz)
                 toplam_hedeflenen += calisan.hedeflenen_mesai_saati
                 toplam_gerceklesen += calisan.gerceklesen_mesai_saati

@@ -126,7 +126,7 @@ async def izin_talebi_olustur(
     Args:
         calisan_id: Çalışanın benzersiz kimlik numarası.
         baslangic: İzin başlangıç tarihi. Örnek: 2026-01-15
-        bitis: İzin bitiş tarihi. Örnek: 2026-01-17
+        bitis: İzin bitiş tarihi. Tek günlük izinler için başlangıç tarihi ile AYNI OLMALIDIR.
         neden: İzin talebi nedeni. Örnek: Yıllık izin
 
     Returns:
@@ -332,9 +332,8 @@ async def tum_calisanlari_listele() -> dict:
 tum_calisanlari_listele._injected = {}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # TOOL LİSTELERİ — ChatbotService tarafından kullanılır
-# ══════════════════════════════════════════════════════════════════════════════
 
 PERSONEL_TOOLS = [
     performans_sorgula,
