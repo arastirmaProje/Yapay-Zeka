@@ -321,11 +321,15 @@ async def izin_talebi_olustur_api(
     url = f"{BACKEND_API_URL}/api/Leave"
     
     import datetime
-    def _format_date(d_str: str) -> str:
+    def _format_date(d_str: str, is_end: bool = False) -> str:
         try:
             if "T" not in d_str:
-                # Gelen YYYY-MM-DD formatını ISO 8601'e çevir
-                return datetime.datetime.strptime(d_str.strip()[:10], "%Y-%m-%d").isoformat() + "Z"
+                # Gelen YYYY-MM-DD formatını yerel saat (local) gibi algılanması için Z olmadan gönderelim.
+                # Bitiş tarihi ise günün sonuna (23:59:59) ayarlayalım ki gün kayması/çakışması yaşanmasın.
+                date_obj = datetime.datetime.strptime(d_str.strip()[:10], "%Y-%m-%d")
+                if is_end:
+                    date_obj = date_obj.replace(hour=23, minute=59, second=59)
+                return date_obj.isoformat()
         except Exception:
             pass
         return d_str
@@ -334,8 +338,8 @@ async def izin_talebi_olustur_api(
         "businessId": business_id,
         "title": neden if neden and len(neden) > 1 else "İzin Talebi",
         "description": neden if neden and len(neden) > 1 else "Mazeret bildirilmedi.",
-        "startDate": _format_date(baslangic),
-        "endDate": _format_date(bitis),
+        "startDate": _format_date(baslangic, is_end=False),
+        "endDate": _format_date(bitis, is_end=True),
     }
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
