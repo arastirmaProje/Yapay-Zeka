@@ -323,7 +323,16 @@ Gerçekleşen Aylık Mesai: {istek.gerceklesen_mesai_saati} saat
             prompt,
             generation_config=self.generation_config,
         )
-        metin = response.text if hasattr(response, "text") else str(response)
+        try:
+            metin = response.text
+        except ValueError:
+            metin = ""
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, "text") and part.text:
+                        metin += part.text
+            if not metin:
+                metin = str(response)
 
         try:
             veri = self._json_parse(metin)
@@ -427,7 +436,16 @@ Mesai Kullanım Oranı Ortalaması: %{departman_analizi['ortalama_mesai_kullanim
             prompt,
             generation_config=self.generation_config,
         )
-        metin = response.text if hasattr(response, "text") else str(response)
+        try:
+            metin = response.text
+        except ValueError:
+            metin = ""
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, "text") and part.text:
+                        metin += part.text
+            if not metin:
+                metin = str(response)
 
         try:
             veri = self._json_parse(metin)

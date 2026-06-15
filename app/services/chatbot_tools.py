@@ -15,9 +15,9 @@ from typing import Optional
 from app.services import backend_client
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # PERSONEL TOOL'LARI — Çalışanın kendi verileriyle etkileşim
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 
 async def performans_sorgula(calisan_id: str) -> dict:
@@ -170,9 +170,9 @@ async def performans_gecmisi(calisan_id: str) -> dict:
 performans_gecmisi._injected = {}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # YÖNETİCİ EK TOOL'LARI — Departman yönetimi ve ekip analizi
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 
 async def departman_performans(departman_id: str) -> dict:

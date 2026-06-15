@@ -56,9 +56,9 @@ except ImportError:
     from . import backend_client
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # System Prompt'lar
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 PERSONEL_SYSTEM_PROMPT = """Sen "Personelim" uygulamasının yapay zeka asistanısın.
 Bir çalışana yardımcı oluyorsun. Görevin:
@@ -108,9 +108,9 @@ KURALLAR:
 - Eğer otomatik eşleşme bulunamazsa ve tool çağrısı için departman veya çalışan ID'si gerekiyorsa, o zaman kullanıcıya nazikçe sor."""
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # Tool dispatch haritası
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 # Tool fonksiyonlarını isimleriyle eşle (Gemini function_call.name ile çağırmak için)
 _TOOL_DISPATCH: Dict[str, callable] = {}
@@ -118,9 +118,9 @@ for fn in YONETICI_TOOLS:
     _TOOL_DISPATCH[fn.__name__] = fn
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # ChatbotService
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 
 class ChatbotService:
@@ -317,13 +317,14 @@ class ChatbotService:
 
         # 6) Son yanıt metnini al
         yanit_metni = ""
-        if hasattr(response, "text"):
+        try:
             yanit_metni = response.text
-        else:
-            # Parts'lardan metin topla
-            for part in response.candidates[0].content.parts:
-                if hasattr(part, "text") and part.text:
-                    yanit_metni += part.text
+        except ValueError:
+            # response.text ValueError fırlatırsa (part yoksa), manuel deneyelim veya boş bırakalım.
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, "text") and part.text:
+                        yanit_metni += part.text
 
         if not yanit_metni:
             yanit_metni = "Üzgünüm, yanıt oluşturulamadı. Lütfen tekrar deneyin."
