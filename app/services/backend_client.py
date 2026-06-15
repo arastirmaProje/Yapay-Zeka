@@ -56,7 +56,9 @@ def _parse_response(response: httpx.Response) -> dict:
         message = body.get("message", "Bilinmeyen hata")
         return {"hata": message, "detaylar": errors}
 
-    return body
+    # Gemini'nin "errors": [] gibi boş hata dizilerini görüp kafasının karışmasını önlemek için
+    # doğrudan iç veriyi (data) döndür.
+    return body.get("data", body)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
