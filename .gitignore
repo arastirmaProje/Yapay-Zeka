@@ -21,7 +21,7 @@ env/
 Thumbs.db
 
 # Environment
-# .env
+.env
 
 # Model files (büyük dosyalar — gerekiyorsa LFS kullanın)
 # *.pkl
