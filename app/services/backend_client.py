@@ -28,9 +28,9 @@ _TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
 _BULK_TIMEOUT = httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # Yardımcı: Header oluştur
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 
 def _headers(token: str) -> dict:
@@ -61,9 +61,8 @@ def _parse_response(response: httpx.Response) -> dict:
     return body.get("data", body)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Profil API Çağrısı
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 async def profil_getir(token: str) -> dict:
     """Giriş yapan kullanıcının profil bilgilerini (ad, soyad vb.) getirir.
@@ -107,9 +106,8 @@ async def calisan_listesi_getir(business_id: str, token: str) -> dict:
         return {"hata": str(exc)}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Performans API Çağrıları
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 
 async def performans_getir(
@@ -243,9 +241,8 @@ async def departman_raporu_getir(
         return {"hata": f"Beklenmeyen hata: {str(exc)}"}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Görev (Task) API Çağrıları
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 
 async def gorevleri_getir(
@@ -308,9 +305,9 @@ async def gorev_olustur_api(
         return {"hata": f"Beklenmeyen hata: {str(exc)}"}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # İzin (Leave) API Çağrıları
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 
 async def izin_talebi_olustur_api(

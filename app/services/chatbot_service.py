@@ -109,8 +109,6 @@ KURALLAR:
 
 
 
-# Tool dispatch haritası
-
 
 # Tool fonksiyonlarını isimleriyle eşle (Gemini function_call.name ile çağırmak için)
 _TOOL_DISPATCH: Dict[str, callable] = {}
@@ -119,9 +117,8 @@ for fn in YONETICI_TOOLS:
 
 
 
+
 # ChatbotService
-
-
 
 class ChatbotService:
     """
@@ -137,16 +134,16 @@ class ChatbotService:
 
         self.model_name = model_name
 
-        # ── Maliyet kontrollü generation config ───────────────────────────
+        # ── Maliyet kontrollü generation config
         self.generation_config = types.GenerationConfig(
             max_output_tokens=1024,
             temperature=0.7,
         )
 
-        # ── Tool config: tek mesajda tek tool ─────────────────────────────
+        # ── Tool config: tek mesajda tek tool
         self.tool_config = {"function_calling_config": {"mode": "AUTO"}}
 
-        # ── Personel modeli ───────────────────────────────────────────────
+        # ── Personel modeli
         self.personel_model = genai.GenerativeModel(
             model_name=model_name,
             tools=PERSONEL_TOOLS,
@@ -154,7 +151,7 @@ class ChatbotService:
             generation_config=self.generation_config,
         )
 
-        # ── Yönetici modeli ───────────────────────────────────────────────
+        # ── Yönetici modeli 
         self.yonetici_model = genai.GenerativeModel(
             model_name=model_name,
             tools=YONETICI_TOOLS,
@@ -162,7 +159,7 @@ class ChatbotService:
             generation_config=self.generation_config,
         )
 
-    # ── Yardımcı: Geçmişi Gemini formatına çevir ─────────────────────────
+    # ── Yardımcı: Geçmişi Gemini formatına çevir
 
     def _gecmisi_donustur(self, gecmis: list[ChatMesaj]) -> list[dict]:
         """Backend'den gelen konuşma geçmişini Gemini Content formatına çevirir."""
@@ -173,7 +170,7 @@ class ChatbotService:
             )
         return history
 
-    # ── Yardımcı: Tool fonksiyonlarına context inject et ───────────────────
+    # ── Yardımcı: Tool fonksiyonlarına context inject et
 
     def _inject_context(self, business_id: str, token: str, departments: list = None) -> None:
         """Tüm tool fonksiyonlarına business_id, token ve departments inject eder."""
@@ -185,7 +182,7 @@ class ChatbotService:
                     "departments": departments or [],
                 }
 
-    # ── Yardımcı: Tool çağrısını işle ─────────────────────────────────────
+    # ── Yardımcı: Tool çağrısını işle
 
     async def _tool_cagri_isle(
         self, function_call
@@ -219,7 +216,7 @@ class ChatbotService:
                 str(exc),
             )
 
-    # ── Ana chat akışı ────────────────────────────────────────────────────
+    # ── Ana chat akışı
 
     async def _chat_isle(
         self,
@@ -288,8 +285,6 @@ class ChatbotService:
             islem_yapildi = tool_adi
             tool_verisi = tool_sonucu
 
-            # Gemini, FunctionResponse.response için her zaman dict bekler.
-            # tool_sonucu liste veya başka bir tür dönmüşse dict içine sar.
             safe_response = tool_sonucu if isinstance(tool_sonucu, dict) else {"sonuc": tool_sonucu}
 
             # Tool sonucunu Gemini'ye geri gönder
@@ -320,7 +315,6 @@ class ChatbotService:
         try:
             yanit_metni = response.text
         except ValueError:
-            # response.text ValueError fırlatırsa (part yoksa), manuel deneyelim veya boş bırakalım.
             if response.candidates and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, "text") and part.text:
@@ -335,7 +329,7 @@ class ChatbotService:
             veri=tool_verisi,
         )
 
-    # ── Personel Chat ─────────────────────────────────────────────────────
+    #Personel Chat
 
     async def personel_chat(self, istek: PersonelChatIstegi) -> ChatYaniti:
         """Personel chatbot'u — çalışan kendi verileriyle etkileşir."""
@@ -378,7 +372,7 @@ class ChatbotService:
             ek_context=ek_context,
         )
 
-    # ── Yönetici Chat ────────────────────────────────────────────────────
+    # ── Yönetici Chat
 
     async def yonetici_chat(self, istek: YoneticiChatIstegi) -> ChatYaniti:
         """Yönetici chatbot'u — departman yönetimi ve ekip analizi."""
@@ -408,7 +402,6 @@ class ChatbotService:
         
         if departmanlar_api and len(departmanlar_api) > 0:
             departman_sayisi = len(departmanlar_api)
-            # Mobil uygulamadan departments dizisi boş gelmişse dolduralım (AI tolları için gerekli)
             if not istek.departments:
                 from app.chatbot_models import DepartmentInfo
                 for d in departmanlar_api:

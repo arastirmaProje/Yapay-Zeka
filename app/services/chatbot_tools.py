@@ -16,8 +16,6 @@ from app.services import backend_client
 
 
 
-# PERSONEL TOOL'LARI — Çalışanın kendi verileriyle etkileşim
-
 
 
 async def performans_sorgula(calisan_id: str) -> dict:
@@ -44,7 +42,6 @@ async def performans_sorgula(calisan_id: str) -> dict:
     if isinstance(result, dict) and result.get("hata"):
         return result
         
-    # Gelen veri liste ise en sonuncuyu alalım
     kayitlar = result.get("data") or result.get("Data") or result.get("items") or [] if isinstance(result, dict) else (result if isinstance(result, list) else [])
     if not kayitlar or len(kayitlar) == 0:
         return {"mesaj": "Sistemde henüz hesaplanmış bir performans raporunuz bulunamadı. Lütfen yeni bir performans skoru hesaplanmasını isteyin."}
