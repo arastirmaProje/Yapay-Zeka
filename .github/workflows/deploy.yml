@@ -28,8 +28,11 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             cd /root/personelim
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+            echo "BACKEND_API_URL=${{ secrets.BACKEND_API_URL }}" >> .env
             docker compose pull ai-api
             docker compose up -d --force-recreate ai-api
             docker image prune -f
