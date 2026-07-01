@@ -28,7 +28,7 @@ class PerformansHesaplayici:
             raise FileNotFoundError(f"Zorluk haritası bulunamadı: {self.zorluk_haritasi_path}")
         self.zorluk_haritasi = joblib.load(self.zorluk_haritasi_path)
 
-    # ── Yardımcı metodlar ─────────────────────────────────────────────────
+    # ── Yardımcı metodlar 
 
     def _zorluk_ortalama(self, istek) -> float:
         if not istek.gorevler:
@@ -78,7 +78,7 @@ class PerformansHesaplayici:
 
         return tamamlanan, tamamlanamayan
 
-    # ── Bireysel metrikler ────────────────────────────────────────────────
+    # ── Bireysel metrikler
 
     def verimlilik_skoru_hesapla(self, istek) -> float:
         tamamlanan, _ = self._gorev_sayilari_dogrula(istek)
@@ -175,7 +175,7 @@ class PerformansHesaplayici:
             
         return sonuclar
 
-    # ── Departman metodları ───────────────────────────────────────────────
+    # ── Departman metodları
 
     def departman_skoru_hesapla(
         self,

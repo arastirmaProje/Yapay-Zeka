@@ -106,7 +106,7 @@ class PerformanceReportGenerator:
                 temiz[anahtar] = deger
         return temiz
 
-    # ── Yardımcı metodlar ─────────────────────────────────────────────────
+    # ── Yardımcı metodlar
 
     def _gorev_metni_olustur(self, istek) -> str:
         if not istek.gorevler:
